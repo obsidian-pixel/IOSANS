@@ -1,7 +1,278 @@
 import webLLMService from "../engine/WebLLMService";
 import useWorkflowStore from "../store/workflowStore";
+import useModelStore from "../store/modelStore";
+import useExecutionStore from "../store/executionStore";
 import { NODE_DOCS } from "../data/nodeDocsData";
 import { WORKFLOW_TEMPLATES } from "../data/templates";
+
+/**
+ * VRAM requirements for common model sizes (approximate in GB)
+ */
+const MODEL_VRAM_REQUIREMENTS = {
+  "0.5B": 1,
+  "1B": 2,
+  "1.5B": 2.5,
+  "2B": 3,
+  "3B": 4,
+  "4B": 5,
+  "7B": 8,
+  "8B": 10,
+  "9B": 12,
+};
+
+/**
+ * Build a sanitized canvas context for the LLM
+ * Returns a condensed JSON snapshot of current workflow state
+ */
+function buildCanvasContext(nodes, edges) {
+  return {
+    summary: {
+      totalNodes: nodes.length,
+      totalConnections: edges.length,
+      nodeTypes: [...new Set(nodes.map((n) => n.type))],
+    },
+    nodes: nodes.map((n) => ({
+      id: n.id,
+      type: n.type,
+      title: n.data?.label || n.type,
+      hasConfig: Object.keys(n.data || {}).length > 1,
+    })),
+    connections: edges.map((e) => ({
+      from: e.source,
+      to: e.target,
+    })),
+  };
+}
+
+/**
+ * Generate proactive suggestions based on canvas state
+ * Analyzes what the user has and what they might need
+ */
+function getProactiveSuggestions(nodes, edges) {
+  const suggestions = [];
+  const nodeTypes = nodes.map((n) => n.type);
+
+  // Check for webhook without AI processing
+  if (nodeTypes.includes("webhookTrigger") && !nodeTypes.includes("aiAgent")) {
+    suggestions.push({
+      type: "add_node",
+      message:
+        "I see you have a webhook trigger. Would you like me to add an AI Agent to process the incoming data?",
+      suggestedAction: {
+        type: "addNode",
+        nodeType: "aiAgent",
+        label: "Process Webhook Data",
+      },
+    });
+  }
+
+  // Check for AI Agent without output
+  if (nodeTypes.includes("aiAgent") && !nodeTypes.includes("output")) {
+    suggestions.push({
+      type: "add_node",
+      message:
+        "Your AI Agent needs an Output node to display results. Want me to add one?",
+      suggestedAction: { type: "addNode", nodeType: "output", label: "Result" },
+    });
+  }
+
+  // Check for HTTP Request without error handling
+  if (nodeTypes.includes("httpRequest") && !nodeTypes.includes("ifElse")) {
+    suggestions.push({
+      type: "add_node",
+      message:
+        "Consider adding an If/Else node to handle API errors gracefully.",
+      suggestedAction: {
+        type: "addNode",
+        nodeType: "ifElse",
+        label: "Check Response",
+      },
+    });
+  }
+
+  // Check for Code Executor that might benefit from AI
+  if (nodeTypes.includes("codeExecutor") && !nodeTypes.includes("aiAgent")) {
+    suggestions.push({
+      type: "enhance",
+      message:
+        "Want to add an AI Agent to dynamically generate or modify the code?",
+      suggestedAction: {
+        type: "addNode",
+        nodeType: "aiAgent",
+        label: "Code Generator",
+      },
+    });
+  }
+
+  // Check for disconnected nodes
+  const connectedNodes = new Set();
+  edges.forEach((e) => {
+    connectedNodes.add(e.source);
+    connectedNodes.add(e.target);
+  });
+  const disconnected = nodes.filter(
+    (n) => !connectedNodes.has(n.id) && nodes.length > 1
+  );
+  if (disconnected.length > 0) {
+    suggestions.push({
+      type: "warning",
+      message: `You have ${disconnected.length} disconnected node(s). Would you like help connecting them?`,
+      disconnectedNodes: disconnected.map((n) => n.id),
+    });
+  }
+
+  return suggestions;
+}
+
+/**
+ * Check VRAM requirements for a model and return warnings
+ * @param {string} modelId - The model ID to check
+ * @returns {object|null} Warning object if VRAM might be exceeded
+ */
+function checkResourceWarnings(modelId) {
+  if (!modelId) return null;
+
+  // Extract size from model ID (e.g., "Llama-3.2-8B" -> "8B")
+  const sizeMatch = modelId.match(/(\d+(?:\.\d+)?)[Bb]/i);
+  if (!sizeMatch) return null;
+
+  const sizeStr = sizeMatch[1] + "B";
+  const requiredVRAM = MODEL_VRAM_REQUIREMENTS[sizeStr];
+
+  if (!requiredVRAM) return null;
+
+  // Estimate available VRAM (conservative estimate for browser-based)
+  // Most devices have 4-8GB shared GPU memory in browser context
+  const estimatedAvailable = 8; // GB - conservative default
+
+  if (requiredVRAM > estimatedAvailable) {
+    // Find a smaller alternative
+    const modelStore = useModelStore.getState();
+    const alternatives = modelStore.availableModels
+      .filter((m) => {
+        const altMatch = m.id.match(/(\d+(?:\.\d+)?)[Bb]/i);
+        if (!altMatch) return false;
+        const altReq = MODEL_VRAM_REQUIREMENTS[altMatch[1] + "B"];
+        return altReq && altReq <= estimatedAvailable;
+      })
+      .slice(0, 3);
+
+    return {
+      warning: true,
+      message: `⚠️ Warning: ${modelId} requires ~${requiredVRAM}GB VRAM which may exceed your device's capacity.`,
+      suggestion:
+        alternatives.length > 0
+          ? `Consider using a quantized smaller model like: ${alternatives
+              .map((a) => a.name)
+              .join(", ")}`
+          : "Consider using a smaller quantized model for better stability.",
+      requiredVRAM,
+      estimatedAvailable,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Analyze a node error and generate fix suggestions
+ * @param {string} nodeId - The node that errored
+ * @param {object} errorLog - The error log entry
+ * @param {object} nodeData - The node's current configuration
+ * @returns {object} Analysis with suggested fix
+ */
+function analyzeNodeError(nodeId, errorLog) {
+  const errorMessage = errorLog?.message || errorLog?.error || "Unknown error";
+  const analysis = {
+    nodeId,
+    error: errorMessage,
+    diagnosis: "",
+    suggestedFix: null,
+  };
+
+  // Common error patterns and fixes
+  const patterns = [
+    {
+      pattern: /{{(\w+)\.(\w+)}}/,
+      diagnosis: "Variable expression syntax error",
+      fix: (match) => {
+        // Suggest correct syntax: {{node.output.data}}
+        return {
+          type: "updateNode",
+          nodeId,
+          config: {
+            expression: `{{${match[1]}.output.${match[2]}}}`,
+          },
+          description: `Fix variable syntax: Use {{${match[1]}.output.${match[2]}}} instead of {{${match[1]}.${match[2]}}}`,
+        };
+      },
+    },
+    {
+      pattern: /undefined is not|Cannot read propert/i,
+      diagnosis: "Missing or undefined input data",
+      fix: () => ({
+        type: "addNode",
+        nodeType: "setVariable",
+        config: { name: "defaultInput", value: "{}" },
+        description: "Add a Set Variable node to provide default input values",
+      }),
+    },
+    {
+      pattern: /timeout|timed out/i,
+      diagnosis: "Operation timed out - possibly due to model loading",
+      fix: () => ({
+        type: "updateNode",
+        nodeId,
+        config: { timeout: 300000 },
+        description: "Increase timeout to 5 minutes for AI operations",
+      }),
+    },
+    {
+      pattern: /fetch|network|CORS/i,
+      diagnosis: "Network or CORS error in HTTP request",
+      fix: () => ({
+        type: "updateNode",
+        nodeId,
+        config: { mode: "cors", headers: { Accept: "application/json" } },
+        description: "Update request headers to handle CORS",
+      }),
+    },
+    {
+      pattern: /JSON\.parse|Unexpected token/i,
+      diagnosis: "Invalid JSON in response or configuration",
+      fix: () => ({
+        type: "addNode",
+        nodeType: "codeExecutor",
+        config: {
+          code: "// Safely parse JSON\ntry {\n  return JSON.parse(input);\n} catch {\n  return { raw: input };\n}",
+        },
+        description: "Add a Code Executor to safely parse JSON",
+      }),
+    },
+  ];
+
+  // Find matching pattern
+  for (const { pattern, diagnosis, fix } of patterns) {
+    const match = errorMessage.match(pattern);
+    if (match) {
+      analysis.diagnosis = diagnosis;
+      analysis.suggestedFix = fix(match);
+      break;
+    }
+  }
+
+  // Fallback generic analysis
+  if (!analysis.diagnosis) {
+    analysis.diagnosis = "Unrecognized error - manual inspection recommended";
+    analysis.suggestedFix = {
+      type: "focusNode",
+      nodeId,
+      description: "Open node configuration to inspect settings",
+    };
+  }
+
+  return analysis;
+}
 
 /**
  * Build condensed knowledge base from NODE_DOCS
@@ -157,6 +428,89 @@ class OverseerService {
     this.subscribers = [];
     this.actionHistory = []; // For undo functionality
     this.thinkingCallbacks = [];
+    this.errorSubscribers = []; // For error event listeners
+    this.pendingErrorAnalysis = null; // Store pending error for auto-analysis
+
+    // Subscribe to execution errors for Agentic Debugger
+    this.setupErrorSubscription();
+  }
+
+  /**
+   * Subscribe to executionStore for error events (Agentic Debugger)
+   */
+  setupErrorSubscription() {
+    // Subscribe to store changes
+    useExecutionStore.subscribe((state, prevState) => {
+      // Detect new error logs
+      const newLogs = state.logs.filter(
+        (log) =>
+          log.type === "error" && !prevState.logs.some((pl) => pl.id === log.id)
+      );
+
+      if (newLogs.length > 0) {
+        const latestError = newLogs[newLogs.length - 1];
+        this.handleExecutionError(latestError);
+      }
+    });
+  }
+
+  /**
+   * Handle execution error - analyze and notify
+   */
+  handleExecutionError(errorLog) {
+    const { nodes } = useWorkflowStore.getState();
+    const errorNode = nodes.find((n) => n.id === errorLog.nodeId);
+
+    if (!errorNode) return;
+
+    // Analyze the error
+    const analysis = analyzeNodeError(errorLog.nodeId, errorLog);
+
+    // Store for potential fix action
+    this.pendingErrorAnalysis = analysis;
+
+    // Inject error analysis message into active session
+    const session = this.getActiveSession();
+    if (session) {
+      const errorMessage = {
+        role: "assistant",
+        content:
+          `🔴 **Workflow Error Detected**\n\n` +
+          `**Node:** ${errorNode.data?.label || errorNode.type}\n` +
+          `**Error:** ${analysis.error}\n` +
+          `**Diagnosis:** ${analysis.diagnosis}\n\n` +
+          (analysis.suggestedFix
+            ? `**Suggested Fix:** ${analysis.suggestedFix.description}\n\n` +
+              `\`\`\`json\n{"actions": [{"type": "${
+                analysis.suggestedFix.type
+              }", "nodeId": "${analysis.nodeId}", "config": ${JSON.stringify(
+                analysis.suggestedFix.config || {}
+              )}, "__fixAction": true}]}\n\`\`\``
+            : ""),
+        isErrorAnalysis: true,
+        timestamp: Date.now(),
+      };
+
+      session.messages.push(errorMessage);
+      session.timestamp = Date.now();
+      this.saveSessions();
+      this.notifySubscribers();
+
+      // Notify error subscribers
+      this.errorSubscribers.forEach((cb) => cb(analysis));
+    }
+  }
+
+  /**
+   * Subscribe to error events
+   */
+  onError(callback) {
+    this.errorSubscribers.push(callback);
+    return () => {
+      this.errorSubscribers = this.errorSubscribers.filter(
+        (cb) => cb !== callback
+      );
+    };
   }
 
   loadSessions() {
@@ -302,8 +656,15 @@ class OverseerService {
 
     // 1. Get current workflow context
     const { nodes, edges } = useWorkflowStore.getState();
+
     // Analyze workflow for suggestions and issues
     const analysis = analyzeWorkflow(nodes, edges);
+
+    // Build enhanced canvas context
+    const canvasContext = buildCanvasContext(nodes, edges);
+
+    // Get proactive suggestions based on current state
+    const proactiveSuggestions = getProactiveSuggestions(nodes, edges);
 
     // Get current selection context if any
     const selectedNode = nodes.find((n) => n.selected);
@@ -311,22 +672,24 @@ class OverseerService {
       ? getNodeConfigHelp(selectedNode.type)
       : null;
 
+    // Check for VRAM warnings if user mentions a model
+    let resourceWarning = null;
+    const modelMention = userMessage.match(
+      /(?:llama|qwen|gemma|phi|mistral)[\s-]*(?:\d+(?:\.\d+)?)?[\s-]*(\d+)[Bb]/i
+    );
+    if (modelMention) {
+      resourceWarning = checkResourceWarnings(modelMention[0]);
+    }
+
     const context = JSON.stringify({
-      nodeCount: nodes.length,
-      edgeCount: edges.length,
-      nodes: nodes.map((n) => ({
-        id: n.id,
-        type: n.type,
-        label: n.data.label,
-        config: n.data, // Include config for deeper understanding
-      })),
-      edges: edges.map((e) => ({ source: e.source, target: e.target })),
+      canvas: canvasContext,
       analysis: {
         issues: analysis.issues,
         suggestions: analysis.suggestions,
         hasOutput: analysis.hasOutput,
         hasTrigger: analysis.hasTrigger,
       },
+      proactiveSuggestions: proactiveSuggestions.slice(0, 3), // Limit to top 3
       selectedNode: selectedNode
         ? {
             id: selectedNode.id,
@@ -334,19 +697,26 @@ class OverseerService {
             help: selectedNodeHelp,
           }
         : null,
+      resourceWarning,
     });
 
-    // 2. Prepare System Prompt
     // 2. Prepare Knowledge Base
-    // We inject the node reference dynamically so it's always up to date
     const nodeReference = buildNodeReference()
       .map((n) => `- **${n.type}**: ${n.overview} (Inputs: ${n.config})`)
       .join("\n");
 
-    // 3. Prepare System Prompt
+    // 3. Prepare System Prompt with enhanced context awareness
     const systemPrompt =
       SYSTEM_PROMPT.replace("{{NODE_REFERENCE}}", nodeReference) +
-      `\n\n### Current Workflow State\n${context}`;
+      `\n\n### Current Canvas State\n${context}` +
+      (proactiveSuggestions.length > 0
+        ? `\n\n### Proactive Suggestions\nBased on the current canvas, consider mentioning:\n${proactiveSuggestions
+            .map((s) => `- ${s.message}`)
+            .join("\n")}`
+        : "") +
+      (resourceWarning
+        ? `\n\n### Resource Warning\n${resourceWarning.message}\n${resourceWarning.suggestion}`
+        : "");
 
     try {
       // 3. Call LLM

@@ -278,3 +278,28 @@
 .animated-edge.has-data.hovered {
   filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.5));
 }
+
+/* ============================================
+   Edge Active State (Execution/Thinking)
+   ============================================ */
+
+.animated-edge.edge-active {
+  stroke: #22d3ee;
+  animation: edgePulse 1.5s ease-in-out infinite;
+}
+
+@keyframes edgePulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 4px rgba(34, 211, 238, 0.4));
+  }
+  50% {
+    filter: drop-shadow(0 0 10px rgba(34, 211, 238, 0.7));
+  }
+}
+
+.edge-flow-animation.flowing {
+  stroke: rgba(34, 211, 238, 0.6);
+  stroke-dasharray: 8 8;
+  animation: flowAnimation 0.4s linear infinite;
+}

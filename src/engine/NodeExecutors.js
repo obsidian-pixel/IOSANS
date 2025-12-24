@@ -6,6 +6,7 @@ import webLLMService from "./WebLLMService";
 import { saveArtifact } from "../utils/artifactStorage";
 import { vectorMemoryService } from "../services/VectorMemoryService";
 import { executeSandboxed } from "../utils/sandboxedExecutor";
+import { autoDetectType, dataUriToBlob } from "../utils/autoDetectType";
 
 /**
  * Execute a single node and return its output
@@ -455,58 +456,120 @@ const NodeExecutors = {
         });
       }
 
-      context.addLog({
-        type: "info",
-        nodeId: context.nodeId,
-        nodeName: data.label || "AI Agent",
-        message: `🤖 Generating response...`,
-      });
+      // Build tool-aware system prompt for JSON mode
+      const tools = mergedData.tools || [];
+      let toolSystemPrompt = "";
 
-      const response = await webLLMService.generateWithHistory(
-        currentMessage,
-        history,
-        {
-          temperature,
-          maxTokens: maxTokens,
-          systemPrompt: finalSystemMessage,
-        },
-        // Heartbeat callback for streaming/progress
-        () => {
-          if (context.heartbeat) context.heartbeat();
+      if (tools.length > 0) {
+        toolSystemPrompt = `
+
+You have access to these tools:
+${tools
+  .map((t) => `- ${t.name}: ${t.description || "Execute " + t.type + " node"}`)
+  .join("\n")}
+
+IMPORTANT: When you need to use a tool, respond ONLY with this JSON format:
+{"action": "tool", "tool": "tool_name", "input": "your input for the tool"}
+
+When you have the final answer (after tool results or if no tool needed), respond with:
+{"action": "answer", "content": "your final response to the user"}
+
+Always respond with valid JSON. Do not include any text outside the JSON object.`;
+      }
+
+      const fullSystemPrompt = finalSystemMessage + toolSystemPrompt;
+
+      // Two-pass execution loop for tool calling
+      const MAX_TOOL_ITERATIONS = 5;
+      let iteration = 0;
+      let conversationHistory = [...history];
+      let currentUserMessage = currentMessage;
+      let finalOutput = null;
+
+      while (iteration < MAX_TOOL_ITERATIONS) {
+        iteration++;
+
+        context.addLog({
+          type: "info",
+          nodeId: context.nodeId,
+          nodeName: data.label || "AI Agent",
+          message:
+            iteration === 1
+              ? `🤖 Generating response...`
+              : `🔄 Processing tool result (iteration ${iteration})...`,
+        });
+
+        const response = await webLLMService.generateWithHistory(
+          currentUserMessage,
+          conversationHistory,
+          {
+            temperature,
+            maxTokens: maxTokens,
+            systemPrompt: fullSystemPrompt,
+          },
+          // Heartbeat callback for streaming/progress
+          () => {
+            if (context.heartbeat) context.heartbeat();
+          }
+        );
+
+        let cleanResponse = response.trim();
+
+        context.addLog({
+          type: "success",
+          nodeId: context.nodeId,
+          nodeName: data.label || "AI Agent",
+          message: `✅ Generation complete`,
+        });
+
+        // Try to parse as JSON (tool call or final answer)
+        let parsed = null;
+        try {
+          // Extract JSON from response (handle markdown code blocks)
+          let jsonStr = cleanResponse;
+          const jsonMatch = cleanResponse.match(/```(?:json)?\s*([\s\S]*?)```/);
+          if (jsonMatch) {
+            jsonStr = jsonMatch[1].trim();
+          }
+          // Also try to find raw JSON object
+          const rawJsonMatch = cleanResponse.match(/\{[\s\S]*\}/);
+          if (!jsonMatch && rawJsonMatch) {
+            jsonStr = rawJsonMatch[0];
+          }
+
+          parsed = JSON.parse(jsonStr);
+        } catch {
+          // Not valid JSON - treat as direct answer
+          context.addLog({
+            type: "info",
+            nodeId: context.nodeId,
+            nodeName: data.label || "AI Agent",
+            message: `📝 Response is not JSON, treating as direct answer`,
+          });
+          finalOutput = cleanResponse;
+          break;
         }
-      );
 
-      // Ensure clean text output
-      let cleanResponse = response.trim();
-
-      context.addLog({
-        type: "success",
-        nodeId: context.nodeId,
-        nodeName: data.label || "AI Agent",
-        message: `✅ Generation complete`,
-      });
-
-      // Check for tool calls (support multiple)
-      const toolRegex = /\[TOOL:\s*([^\]]+)\](.*?)(?=\[TOOL:|$)/gis;
-      const toolMatches = [...cleanResponse.matchAll(toolRegex)];
-
-      if (toolMatches.length > 0) {
-        const toolResults = [];
-
-        for (const match of toolMatches) {
-          const toolName = match[1].trim();
-          const toolArgs = match[2].trim();
+        // Handle parsed response
+        if (parsed.action === "answer") {
+          // Final answer
+          finalOutput = parsed.content || cleanResponse;
+          break;
+        } else if (parsed.action === "tool" && parsed.tool) {
+          // Tool call requested
+          const toolName = parsed.tool;
+          const toolInput = parsed.input;
 
           context.addLog({
             type: "warning",
             nodeId: context.nodeId,
             nodeName: data.label || "AI Agent",
-            message: `🛠️ Agent requested tool: ${toolName}`,
-            data: { tool: toolName, args: toolArgs },
+            message: `🛠️ Agent calling tool: ${toolName}`,
+            data: { tool: toolName, input: toolInput },
           });
 
-          // Find the mapped tool definition
-          const toolDef = (mergedData.tools || []).find(
+          // Find the tool definition
+          const toolDef = tools.find(
             (t) => t.name.toLowerCase() === toolName.toLowerCase()
           );
 
@@ -521,18 +584,6 @@ const NodeExecutors = {
                 message: `🚀 Executing tool: ${toolName}...`,
               });
 
-              // Parse arguments
-              let toolInput = toolArgs;
-              try {
-                if (toolArgs.trim().startsWith("{")) {
-                  toolInput = JSON.parse(toolArgs);
-                } else {
-                  toolInput = toolArgs.replace(/^["'](.*)["']$/, "$1");
-                }
-              } catch {
-                // Keep as string
-              }
-
               // Execute the tool node
               const toolResult = await executeNode(
                 toolNode,
@@ -541,13 +592,31 @@ const NodeExecutors = {
               );
 
               if (toolResult.success) {
-                toolResults.push(toolResult.output);
                 context.addLog({
                   type: "success",
                   nodeId: context.nodeId,
                   nodeName: data.label || "AI Agent",
                   message: `✅ Tool '${toolName}' executed successfully`,
                 });
+
+                // Add tool call and result to history for next iteration
+                conversationHistory.push(
+                  { role: "assistant", content: cleanResponse },
+                  {
+                    role: "user",
+                    content: `Tool "${toolName}" returned: ${
+                      typeof toolResult.output === "object"
+                        ? JSON.stringify(toolResult.output)
+                        : String(toolResult.output)
+                    }\n\nPlease provide your final answer using: {"action": "answer", "content": "..."}`,
+                  }
+                );
+                currentUserMessage = ""; // History contains the context now
+
+                // If this is the last iteration, use tool result as output
+                if (iteration === MAX_TOOL_ITERATIONS) {
+                  finalOutput = toolResult.output;
+                }
               } else {
                 context.addLog({
                   type: "error",
@@ -555,7 +624,16 @@ const NodeExecutors = {
                   nodeName: data.label || "AI Agent",
                   message: `❌ Tool '${toolName}' failed: ${toolResult.error}`,
                 });
-                toolResults.push({ error: toolResult.error, tool: toolName });
+
+                // Inform the LLM about the error
+                conversationHistory.push(
+                  { role: "assistant", content: cleanResponse },
+                  {
+                    role: "user",
+                    content: `Tool "${toolName}" failed with error: ${toolResult.error}\n\nPlease handle this error and provide your final answer.`,
+                  }
+                );
+                currentUserMessage = "";
               }
             } else {
               context.addLog({
@@ -564,27 +642,48 @@ const NodeExecutors = {
                 nodeName: data.label || "AI Agent",
                 message: `❌ Tool node not found: ${toolDef.nodeId}`,
               });
+              finalOutput = `Error: Tool node "${toolName}" not found in workflow`;
+              break;
             }
           } else {
             context.addLog({
               type: "error",
               nodeId: context.nodeId,
               nodeName: data.label || "AI Agent",
-              message: `⚠️ MISSING TOOL: Agent requested '${toolName}' but it is not connected.`,
+              message: `⚠️ Tool '${toolName}' not connected. Available: ${
+                tools.map((t) => t.name).join(", ") || "none"
+              }`,
             });
-          }
-        }
 
-        // Return results
-        // If single result, return it directly for backward compat
-        if (toolResults.length === 1) {
-          return { output: toolResults[0] };
-        } else if (toolResults.length > 0) {
-          return { output: toolResults };
+            // Inform LLM about missing tool
+            conversationHistory.push(
+              { role: "assistant", content: cleanResponse },
+              {
+                role: "user",
+                content: `Tool "${toolName}" is not available. Available tools: ${
+                  tools.map((t) => t.name).join(", ") || "none"
+                }.\n\nPlease provide your answer without using that tool.`,
+              }
+            );
+            currentUserMessage = "";
+          }
+        } else {
+          // Unknown action or malformed - treat as answer
+          finalOutput = parsed.content || cleanResponse;
+          break;
         }
       }
 
-      return { output: cleanResponse };
+      if (iteration >= MAX_TOOL_ITERATIONS && !finalOutput) {
+        context.addLog({
+          type: "warning",
+          nodeId: context.nodeId,
+          nodeName: data.label || "AI Agent",
+          message: `⚠️ Max tool iterations reached (${MAX_TOOL_ITERATIONS})`,
+        });
+      }
+
+      return { output: finalOutput };
     } catch (err) {
       throw new Error(`AI generation failed: ${err.message}`);
     }
@@ -840,15 +939,240 @@ const NodeExecutors = {
     };
   },
 
-  // Merge Node
+  // Merge Node - Waits for or aggregates parallel inputs
   merge: async (data, input, context) => {
+    const {
+      mode = "wait",
+      inputCount: _inputCount = 2,
+      aggregator = "array",
+    } = data;
+
     context.addLog({
       type: "info",
       nodeId: context.nodeId,
-      nodeName: "Merge",
-      message: "🔗 Merging execution paths",
+      nodeName: data.label || "Merge",
+      message: `🔗 Merge node (mode: ${mode})`,
     });
-    return { output: input };
+
+    // For parallel execution, merge node would aggregate results
+    // The ExecutionEngine handles the actual waiting/aggregation
+    // Here we just format the output based on aggregator setting
+
+    let output;
+    if (Array.isArray(input)) {
+      switch (aggregator) {
+        case "object":
+          output = input.reduce(
+            (acc, item, i) => ({ ...acc, [`input${i}`]: item }),
+            {}
+          );
+          break;
+        case "concat":
+          output = input.flat();
+          break;
+        case "array":
+        default:
+          output = input;
+      }
+    } else {
+      output = input;
+    }
+
+    return { output };
+  },
+
+  // Semantic Router - Routes based on keyword/LLM classification
+  semanticRouter: async (data, input, context) => {
+    const { routes = [], classificationMode = "keyword" } = data;
+
+    // Get text to classify
+    const textToClassify =
+      typeof input === "string"
+        ? input
+        : input?.text || input?.content || JSON.stringify(input);
+
+    context.addLog({
+      type: "info",
+      nodeId: context.nodeId,
+      nodeName: data.label || "Router",
+      message: `🧭 Classifying input (${classificationMode} mode)...`,
+    });
+
+    let matchedRouteIndex = -1;
+
+    if (classificationMode === "keyword") {
+      // Simple keyword matching
+      const lowerText = textToClassify.toLowerCase();
+
+      for (let i = 0; i < routes.length; i++) {
+        const route = routes[i];
+        const keywords = route.keywords || [];
+
+        for (const keyword of keywords) {
+          if (lowerText.includes(keyword.toLowerCase())) {
+            matchedRouteIndex = i;
+            break;
+          }
+        }
+
+        if (matchedRouteIndex >= 0) break;
+      }
+    }
+    // LLM classification would go here in future
+
+    // If no match, use last output (fallback/other)
+    const finalOutputIndex =
+      matchedRouteIndex >= 0 ? matchedRouteIndex : routes.length;
+
+    const routeLabel =
+      finalOutputIndex < routes.length
+        ? routes[finalOutputIndex].label
+        : "Other";
+
+    context.addLog({
+      type: "success",
+      nodeId: context.nodeId,
+      nodeName: data.label || "Router",
+      message: `✅ Routed to: ${routeLabel} (output ${finalOutputIndex + 1})`,
+    });
+
+    return {
+      output: input,
+      outputIndex: finalOutputIndex,
+    };
+  },
+
+  // Evaluator Node - Validates output for self-correction loops
+  evaluator: async (data, input, context) => {
+    const {
+      evaluationType = "schema",
+      schema = null,
+      regexPattern = "",
+      maxRetries = 3,
+    } = data;
+
+    // Track retry count in context
+    const retryCount = context.retryCount || 0;
+
+    context.addLog({
+      type: "info",
+      nodeId: context.nodeId,
+      nodeName: data.label || "Evaluator",
+      message: `🔍 Evaluating output (${evaluationType}, attempt ${
+        retryCount + 1
+      }/${maxRetries + 1})...`,
+    });
+
+    let isValid = false;
+    let validationError = null;
+
+    try {
+      switch (evaluationType) {
+        case "schema":
+          // JSON Schema validation (basic implementation)
+          if (schema && typeof schema === "object") {
+            const requiredKeys = Object.keys(schema);
+            const inputObj =
+              typeof input === "object" ? input : JSON.parse(input);
+
+            const missingKeys = requiredKeys.filter(
+              (key) => !(key in inputObj)
+            );
+            isValid = missingKeys.length === 0;
+
+            if (!isValid) {
+              validationError = `Missing required keys: ${missingKeys.join(
+                ", "
+              )}`;
+            }
+          } else {
+            // No schema defined = auto pass
+            isValid = true;
+          }
+          break;
+
+        case "regex":
+          if (regexPattern) {
+            const regex = new RegExp(regexPattern);
+            const textToCheck =
+              typeof input === "string" ? input : JSON.stringify(input);
+            isValid = regex.test(textToCheck);
+
+            if (!isValid) {
+              validationError = `Pattern not matched: ${regexPattern}`;
+            }
+          } else {
+            isValid = true;
+          }
+          break;
+
+        case "llm":
+          // LLM-based evaluation would go here
+          // For now, just pass
+          isValid = true;
+          break;
+
+        default:
+          isValid = true;
+      }
+    } catch (error) {
+      isValid = false;
+      validationError = error.message;
+    }
+
+    if (isValid) {
+      context.addLog({
+        type: "success",
+        nodeId: context.nodeId,
+        nodeName: data.label || "Evaluator",
+        message: `✅ Validation passed`,
+      });
+
+      // Output 0 = pass
+      return {
+        output: input,
+        outputIndex: 0,
+      };
+    } else {
+      // Check if we can retry
+      if (retryCount < maxRetries) {
+        context.addLog({
+          type: "warning",
+          nodeId: context.nodeId,
+          nodeName: data.label || "Evaluator",
+          message: `⚠️ Validation failed: ${validationError}. Retrying...`,
+        });
+
+        // Output 1 = retry (goes back to generator)
+        return {
+          output: {
+            originalInput: input,
+            error: validationError,
+            retryCount: retryCount + 1,
+            feedback: `Your output was invalid: ${validationError}. Please try again.`,
+          },
+          outputIndex: 1,
+          retryCount: retryCount + 1,
+        };
+      } else {
+        context.addLog({
+          type: "error",
+          nodeId: context.nodeId,
+          nodeName: data.label || "Evaluator",
+          message: `❌ Max retries reached. Validation failed: ${validationError}`,
+        });
+
+        // No more retries - still output 0 but with error flag
+        return {
+          output: {
+            ...input,
+            _validationFailed: true,
+            _validationError: validationError,
+          },
+          outputIndex: 0,
+        };
+      }
+    }
   },
 
   // Loops - supports both count-based (iterations) and array-based (itemsPath) looping
@@ -1081,16 +1405,37 @@ const NodeExecutors = {
         break;
 
       case "file": {
-        // Create and download file
-        const fileContent =
-          typeof outputData === "string"
-            ? outputData
-            : JSON.stringify(outputData, null, 2);
-        const blob = new Blob([fileContent], { type: "text/plain" });
+        // Use auto-detect for proper MIME type and extension
+        const detected = autoDetectType(input);
+        let fileData = detected.data;
+        let fileMime = detected.mimeType;
+        let fileExt = detected.extension;
+
+        // Convert data URI to Blob if needed
+        if (detected.isDataUri && typeof fileData === "string") {
+          const blob = dataUriToBlob(fileData);
+          if (blob) fileData = blob;
+        }
+
+        // Create Blob if not already
+        const blob =
+          fileData instanceof Blob
+            ? fileData
+            : new Blob([fileData], { type: fileMime });
+
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = filename || "output.txt";
+
+        // Use provided filename or generate with detected extension
+        let downloadName = filename;
+        if (!downloadName) {
+          downloadName = `output_${Date.now()}${fileExt}`;
+        } else if (!downloadName.includes(".")) {
+          downloadName += fileExt;
+        }
+
+        a.download = downloadName;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -1100,7 +1445,7 @@ const NodeExecutors = {
           type: "success",
           nodeId: context.nodeId,
           nodeName: data.label || "Output",
-          message: `📁 Downloaded: ${filename || "output.txt"}`,
+          message: `📁 Downloaded: ${downloadName} (${fileMime})`,
         });
         break;
       }

@@ -31,8 +31,18 @@ function AnimatedEdge({
   // Get nodes for collision detection
   const nodes = useWorkflowStore((state) => state.nodes);
 
-  // Get last edge snapshot for ghost tooltip
-  const edgeSnapshots = useExecutionStore((state) => state.edgeSnapshots);
+  // Get execution state for edge status
+  const { currentNodeId, edgeSnapshots, isRunning } = useExecutionStore(
+    (state) => ({
+      currentNodeId: state.currentNodeId,
+      edgeSnapshots: state.edgeSnapshots,
+      isRunning: state.isRunning,
+    })
+  );
+
+  // Check if source node is currently running (data is flowing)
+  const isEdgeActive = isRunning && currentNodeId === source;
+
   const lastSnapshot =
     edgeSnapshots[id]?.[edgeSnapshots[id]?.length - 1] || null;
 
@@ -169,16 +179,18 @@ function AnimatedEdge({
         markerEnd={markerEnd}
         style={{
           ...edgeStyle,
-          strokeWidth: isHovered ? 3 : 2,
+          strokeWidth: isHovered ? 3 : isEdgeActive ? 2.5 : 2,
         }}
         className={`animated-edge ${
           isHovered ? "hovered" : ""
-        } edge-${handleType} ${lastSnapshot ? "has-data" : ""}`}
+        } edge-${handleType} ${lastSnapshot ? "has-data" : ""} ${
+          isEdgeActive ? "edge-active" : ""
+        }`}
       />
 
       {/* Flow animation overlay */}
       <path
-        className="edge-flow-animation"
+        className={`edge-flow-animation ${isEdgeActive ? "flowing" : ""}`}
         d={edgePath}
         fill="none"
         strokeWidth={2}

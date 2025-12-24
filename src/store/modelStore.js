@@ -29,6 +29,7 @@ const useModelStore = create(
           id: "gemma-2-2b-it-q4f16_1-MLC",
           name: "Gemma 2 2B",
           size: "~1.4GB",
+          vramRequired: 2.0, // GB of VRAM required
           description: "Google's fast, lightweight model (Recommended)",
           category: "recommended",
         },
@@ -36,6 +37,7 @@ const useModelStore = create(
           id: "Qwen2.5-1.5B-Instruct-q4f16_1-MLC",
           name: "Qwen 2.5 1.5B",
           size: "~1GB",
+          vramRequired: 1.5,
           description: "Alibaba's efficient small model",
           category: "recommended",
         },
@@ -43,6 +45,7 @@ const useModelStore = create(
           id: "SmolLM2-1.7B-Instruct-q4f16_1-MLC",
           name: "SmolLM2 1.7B",
           size: "~1.1GB",
+          vramRequired: 1.8,
           description: "HuggingFace's compact model",
           category: "recommended",
         },
@@ -52,6 +55,7 @@ const useModelStore = create(
           id: "gemma-2-2b-it-q4f32_1-MLC",
           name: "Gemma 2 2B (F32)",
           size: "~2.5GB",
+          vramRequired: 3.0,
           description: "Higher precision Gemma 2",
           category: "gemma",
         },
@@ -59,6 +63,7 @@ const useModelStore = create(
           id: "gemma-2-9b-it-q4f16_1-MLC",
           name: "Gemma 2 9B",
           size: "~6GB",
+          vramRequired: 8.0,
           description: "Larger Gemma 2 with better reasoning",
           category: "gemma",
         },
@@ -66,6 +71,7 @@ const useModelStore = create(
           id: "gemma-2-2b-jpn-it-q4f16_1-MLC",
           name: "Gemma 2 2B Japanese",
           size: "~1.4GB",
+          vramRequired: 2.0,
           description: "Japanese-optimized Gemma 2",
           category: "gemma",
         },
@@ -75,6 +81,7 @@ const useModelStore = create(
           id: "Qwen3-0.6B-q4f16_1-MLC",
           name: "Qwen 3 0.6B",
           size: "~400MB",
+          vramRequired: 0.8,
           description: "Ultra-light Qwen 3 - instant responses",
           category: "qwen3",
         },
@@ -82,6 +89,7 @@ const useModelStore = create(
           id: "Qwen3-1.7B-q4f16_1-MLC",
           name: "Qwen 3 1.7B",
           size: "~1.1GB",
+          vramRequired: 1.8,
           description: "Fast Qwen 3 with hybrid thinking",
           category: "qwen3",
         },
@@ -89,6 +97,7 @@ const useModelStore = create(
           id: "Qwen3-4B-q4f16_1-MLC",
           name: "Qwen 3 4B",
           size: "~2.5GB",
+          vramRequired: 3.5,
           description: "Balanced Qwen 3 for most tasks",
           category: "qwen3",
         },
@@ -96,6 +105,7 @@ const useModelStore = create(
           id: "Qwen3-8B-q4f16_1-MLC",
           name: "Qwen 3 8B",
           size: "~5GB",
+          vramRequired: 6.5,
           description: "Advanced Qwen 3 with deep reasoning",
           category: "qwen3",
         },
@@ -280,6 +290,52 @@ const useModelStore = create(
       getDownloadedModels: () => {
         const { availableModels, downloadedModels } = get();
         return availableModels.filter((m) => downloadedModels.includes(m.id));
+      },
+
+      // VRAM-aware model helpers
+      getModelsForVRAM: (availableVRAMGB) => {
+        const { availableModels } = get();
+        return availableModels.filter(
+          (m) => (m.vramRequired || 1.0) <= availableVRAMGB
+        );
+      },
+
+      // Check if a model can run with available VRAM
+      canLoadModel: (modelId, availableVRAMGB) => {
+        const { availableModels } = get();
+        const model = availableModels.find((m) => m.id === modelId);
+        if (!model) return false;
+        return (model.vramRequired || 1.0) <= availableVRAMGB;
+      },
+
+      // Get VRAM status indicator
+      getVRAMStatus: (modelId, detectedVRAMGB) => {
+        const { availableModels } = get();
+        const model = availableModels.find((m) => m.id === modelId);
+        if (!model) return { status: "unknown", message: "Model not found" };
+
+        const required = model.vramRequired || 1.0;
+        const ratio = detectedVRAMGB / required;
+
+        if (ratio >= 1.5)
+          return {
+            status: "excellent",
+            color: "#10b981",
+            message: "Plenty of VRAM",
+          };
+        if (ratio >= 1.0)
+          return {
+            status: "good",
+            color: "#22c55e",
+            message: "Should work well",
+          };
+        if (ratio >= 0.8)
+          return { status: "tight", color: "#f59e0b", message: "May be slow" };
+        return {
+          status: "insufficient",
+          color: "#ef4444",
+          message: "Not enough VRAM",
+        };
       },
     }),
     {

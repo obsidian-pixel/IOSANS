@@ -1,8 +1,146 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import overseerService from "../../services/OverseerService";
 import "./OverseerPanel.css";
 import useModelStore from "../../store/modelStore";
+
+/**
+ * ActionCard Component - Renders action blocks with Preview/Apply buttons
+ */
+function ActionCard({ actions, isFixAction }) {
+  const [isApplied, setIsApplied] = useState(false);
+  const [isPreviewing, setIsPreviewing] = useState(false);
+
+  const handlePreview = () => {
+    setIsPreviewing(!isPreviewing);
+    // TODO: Implement ghost node preview on canvas
+    console.log("Preview actions:", actions);
+  };
+
+  const handleApply = () => {
+    if (isApplied) return;
+    overseerService.executeActions(actions);
+    setIsApplied(true);
+    setIsPreviewing(false);
+  };
+
+  const actionSummary = useMemo(() => {
+    const nodeAdds = actions.filter((a) => a.type === "addNode").length;
+    const edgeAdds = actions.filter((a) => a.type === "addEdge").length;
+    const updates = actions.filter((a) => a.type === "updateNode").length;
+    const parts = [];
+    if (nodeAdds) parts.push(`${nodeAdds} node${nodeAdds > 1 ? "s" : ""}`);
+    if (edgeAdds)
+      parts.push(`${edgeAdds} connection${edgeAdds > 1 ? "s" : ""}`);
+    if (updates) parts.push(`${updates} update${updates > 1 ? "s" : ""}`);
+    return parts.join(", ") || "Actions";
+  }, [actions]);
+
+  return (
+    <div className={`action-card ${isFixAction ? "fix-card" : ""}`}>
+      <div className="action-card-header">
+        <span className="action-card-icon">{isFixAction ? "🔧" : "🛠️"}</span>
+        <span className="action-card-title">
+          {isFixAction ? "Quick Fix" : "Workflow Recipe"}
+        </span>
+        <span className="action-card-summary">{actionSummary}</span>
+      </div>
+
+      <div className="action-card-actions">
+        {!isFixAction && (
+          <button
+            className={`btn-preview ${isPreviewing ? "active" : ""}`}
+            onClick={handlePreview}
+            disabled={isApplied}
+          >
+            {isPreviewing ? "👁️ Hide Preview" : "👁️ Preview"}
+          </button>
+        )}
+        <button
+          className={`btn-apply ${isApplied ? "applied" : ""}`}
+          onClick={handleApply}
+          disabled={isApplied}
+        >
+          {isApplied ? "✓ Applied" : isFixAction ? "🔧 Apply Fix" : "✨ Apply"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Parse message content and extract action blocks
+ */
+function parseMessageContent(content) {
+  const parts = [];
+  let lastIndex = 0;
+
+  // Match JSON code blocks
+  const jsonBlockRegex = /```(?:json)?\s*([\s\S]*?)```/gi;
+  let match;
+
+  while ((match = jsonBlockRegex.exec(content)) !== null) {
+    // Add text before this match
+    if (match.index > lastIndex) {
+      parts.push({
+        type: "text",
+        content: content.slice(lastIndex, match.index),
+      });
+    }
+
+    // Try to parse as action JSON
+    try {
+      const parsed = JSON.parse(match[1].trim());
+      if (parsed.actions && Array.isArray(parsed.actions)) {
+        const isFixAction = parsed.actions.some((a) => a.__fixAction);
+        parts.push({
+          type: "actions",
+          actions: parsed.actions,
+          isFixAction,
+        });
+      } else {
+        // Not an action block, show as code
+        parts.push({ type: "code", content: match[0] });
+      }
+    } catch {
+      // Invalid JSON, show as code
+      parts.push({ type: "code", content: match[0] });
+    }
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  // Add remaining text
+  if (lastIndex < content.length) {
+    parts.push({ type: "text", content: content.slice(lastIndex) });
+  }
+
+  return parts.length > 0 ? parts : [{ type: "text", content }];
+}
+
+/**
+ * MessageContent Component - Renders message with action cards
+ */
+function MessageContent({ content }) {
+  const parts = useMemo(() => parseMessageContent(content), [content]);
+
+  return (
+    <>
+      {parts.map((part, idx) => {
+        if (part.type === "actions") {
+          return (
+            <ActionCard
+              key={idx}
+              actions={part.actions}
+              isFixAction={part.isFixAction}
+            />
+          );
+        }
+        return <ReactMarkdown key={idx}>{part.content}</ReactMarkdown>;
+      })}
+    </>
+  );
+}
 
 export default function OverseerPanel({ isOpen, onClose }) {
   const [messages, setMessages] = useState([]);
@@ -220,8 +358,13 @@ export default function OverseerPanel({ isOpen, onClose }) {
             </div>
           )}
           {messages.map((msg, idx) => (
-            <div key={idx} className={`message ${msg.role}`}>
-              <ReactMarkdown>{msg.content}</ReactMarkdown>
+            <div
+              key={idx}
+              className={`message ${msg.role} ${
+                msg.isErrorAnalysis ? "error-analysis" : ""
+              }`}
+            >
+              <MessageContent content={msg.content} />
             </div>
           ))}
           {isLoading && (
