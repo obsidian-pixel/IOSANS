@@ -3,7 +3,8 @@
  */
 .output-node-body {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
   padding: 4px 0;
   background: transparent;
 }
@@ -15,10 +16,51 @@
   color: var(--color-success, #22c55e);
   border-radius: 8px;
   font-weight: 500;
+  align-self: center;
 }
 
 /* Override any default node body background */
 .react-flow__node-output .node-body,
 .base-node .output-node-body {
   background: transparent !important;
+}
+
+/* Preview container */
+.output-preview {
+  margin-top: 4px;
+  max-width: 280px;
+}
+
+.output-preview-json {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  padding: 8px;
+  font-size: 10px;
+  font-family: var(--font-mono, monospace);
+  color: rgba(255, 255, 255, 0.7);
+  max-height: 100px;
+  overflow: hidden;
+}
+
+.output-preview-json pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.preview-more {
+  display: block;
+  text-align: center;
+  color: rgba(99, 102, 241, 0.7);
+  margin-top: 4px;
+  font-style: italic;
+}
+
+.output-preview-text {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  line-height: 1.4;
 }

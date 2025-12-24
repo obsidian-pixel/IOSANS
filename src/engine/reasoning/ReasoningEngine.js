@@ -6,6 +6,7 @@
 // Note: webLLMService imported in ChainOfThought/TreeOfThoughts
 import ChainOfThought from "./ChainOfThought";
 import TreeOfThoughts from "./TreeOfThoughts";
+import useThinkingStore from "../../store/thinkingStore";
 
 // Reasoning strategy types
 export const REASONING_STRATEGIES = {
@@ -42,6 +43,7 @@ class ReasoningEngine {
     context = {}
   ) {
     const startTime = Date.now();
+    const thinkingStore = useThinkingStore.getState();
 
     // Auto-select strategy based on task complexity
     const selectedStrategy =
@@ -49,11 +51,20 @@ class ReasoningEngine {
         ? this.selectStrategy(input, options)
         : strategy;
 
+    // Start streaming to LiveThinking UI
+    thinkingStore.startThinking(selectedStrategy);
+
     this.log(
       context,
       "info",
       `Starting reasoning with strategy: ${selectedStrategy.toUpperCase()}`
     );
+
+    // Stream first step
+    thinkingStore.addStep({
+      type: "thought",
+      content: `Starting ${selectedStrategy.toUpperCase()} reasoning...`,
+    });
 
     // Initialize audit trail for this run
     const auditTrail = {
@@ -63,6 +74,13 @@ class ReasoningEngine {
       steps: [],
     };
 
+    // Create onStep callback for streaming
+    const onStep = (step) => {
+      auditTrail.steps.push(step);
+      thinkingStore.addStep(step);
+      this.log(context, "info", step.content || step.message, step.details);
+    };
+
     let result;
 
     try {
@@ -70,7 +88,7 @@ class ReasoningEngine {
         case REASONING_STRATEGIES.COT:
           result = await this.strategies[REASONING_STRATEGIES.COT].execute(
             input,
-            options,
+            { ...options, onStep },
             context,
             auditTrail
           );
@@ -79,7 +97,7 @@ class ReasoningEngine {
         case REASONING_STRATEGIES.TOT:
           result = await this.strategies[REASONING_STRATEGIES.TOT].execute(
             input,
-            options,
+            { ...options, onStep },
             context,
             auditTrail
           );
@@ -103,6 +121,17 @@ class ReasoningEngine {
       auditTrail.duration = Date.now() - startTime;
       auditTrail.success = true;
 
+      // End streaming
+      thinkingStore.addStep({
+        type: "conclusion",
+        content: "Reasoning complete",
+        details: {
+          duration: auditTrail.duration,
+          steps: auditTrail.steps.length,
+        },
+      });
+      thinkingStore.endThinking();
+
       this.log(
         context,
         "success",
@@ -115,6 +144,7 @@ class ReasoningEngine {
         strategy: selectedStrategy,
       };
     } catch (error) {
+      thinkingStore.endThinking(); // End streaming on error
       auditTrail.endTime = new Date().toISOString();
       auditTrail.duration = Date.now() - startTime;
       auditTrail.success = false;

@@ -3,6 +3,7 @@
  * Execution logic for each node type
  */
 import webLLMService from "./WebLLMService";
+import vectorMemory from "./memory/VectorMemory";
 import { saveArtifact } from "../utils/artifactStorage";
 import { vectorMemoryService } from "../services/VectorMemoryService";
 import { executeSandboxed } from "../utils/sandboxedExecutor";
@@ -786,19 +787,23 @@ Always respond with valid JSON. Do not include any text outside the JSON object.
 
     return new Promise((resolve) => {
       canvas.toBlob(async (blob) => {
+        // Generate artifact ID
+        const artifactId = `image_${Date.now()}_${crypto
+          .randomUUID()
+          .slice(0, 8)}`;
+
         // Save artifact
-        await createArtifact(
-          context,
-          `image_${Date.now()}.png`,
-          "image/png",
-          blob
-        );
+        await createArtifact(context, `${artifactId}.png`, "image/png", blob);
 
         resolve({
           output: {
+            artifactId: artifactId,
+            type: "image",
+            mimeType: "image/png",
             url: URL.createObjectURL(blob),
             prompt: input,
             seed: seed || 12345,
+            _executed: true,
           },
         });
       });
@@ -1017,8 +1022,63 @@ Always respond with valid JSON. Do not include any text outside the JSON object.
 
         if (matchedRouteIndex >= 0) break;
       }
+    } else if (classificationMode === "embedding") {
+      // Embedding-based classification
+      try {
+        context.addLog({
+          type: "info",
+          nodeId: context.nodeId,
+          nodeName: data.label || "Router",
+          message: "🧠 Generating embeddings for input...",
+        });
+
+        // Generate embedding for input
+        const inputEmbedding = await vectorMemory.generateEmbedding(
+          textToClassify
+        );
+
+        // Compare with each route
+        let bestScore = -1;
+
+        for (let i = 0; i < routes.length; i++) {
+          const route = routes[i];
+          // Use keywords or label as the semantic target
+          const routeText = (route.keywords || []).join(" ") || route.label;
+
+          if (!routeText) continue;
+
+          // Generate embedding for route (this should ideally be cached)
+          const routeEmbedding = await vectorMemory.generateEmbedding(
+            routeText
+          );
+
+          const score = vectorMemory.cosineSimilarity(
+            inputEmbedding,
+            routeEmbedding
+          );
+
+          context.addLog({
+            type: "info",
+            nodeId: context.nodeId,
+            nodeName: data.label || "Router",
+            message: `Route "${route.label}" score: ${score.toFixed(4)}`,
+          });
+
+          if (score > bestScore && score > 0.3) {
+            // Threshold
+            bestScore = score;
+            matchedRouteIndex = i;
+          }
+        }
+      } catch (error) {
+        context.addLog({
+          type: "error",
+          nodeId: context.nodeId,
+          nodeName: data.label || "Router",
+          message: `Embedding error: ${error.message}`,
+        });
+      }
     }
-    // LLM classification would go here in future
 
     // If no match, use last output (fallback/other)
     const finalOutputIndex =
@@ -1995,7 +2055,7 @@ Always respond with valid JSON. Do not include any text outside the JSON object.
     };
   },
 
-  // Text to Speech
+  // Text to Speech - generates audio artifact
   textToSpeech: async (data, input, context) => {
     // Input can come from:
     // 1. Workflow data (piped input string)
@@ -2013,21 +2073,96 @@ Always respond with valid JSON. Do not include any text outside the JSON object.
     // Resolve templates
     const resolvedText = resolveExpressions(textToSpeak, { input });
 
+    if (!resolvedText || resolvedText.trim() === "") {
+      throw new Error("No text provided for speech synthesis");
+    }
+
     context.addLog({
       type: "info",
       nodeId: context.nodeId,
       nodeName: data.label || "Text to Speech",
-      message: `🔊 Generating audio for: "${resolvedText.substring(0, 30)}..."`,
+      message: `🔊 Generating audio for: "${resolvedText.substring(0, 50)}${
+        resolvedText.length > 50 ? "..." : ""
+      }"`,
     });
 
+    // Check for Web Speech API support
+    if (!("speechSynthesis" in window)) {
+      throw new Error("Web Speech API not supported in this browser");
+    }
+
+    const voice = data.voice || "default";
+    const speed = data.speed || 1.0;
+    const pitch = data.pitch || 1.0;
+
+    // Create speech utterance
+    const utterance = new SpeechSynthesisUtterance(resolvedText);
+    utterance.rate = speed;
+    utterance.pitch = pitch;
+
+    // Find voice if specified
+    if (voice !== "default") {
+      const voices = window.speechSynthesis.getVoices();
+      const selectedVoice = voices.find((v) =>
+        v.name.toLowerCase().includes(voice.toLowerCase())
+      );
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+      }
+    }
+
+    // Generate unique artifact ID
+    const artifactId = `tts_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
+
+    // Since Web Speech API cannot directly capture audio as a Blob,
+    // we create a structured artifact reference that the Output node can use
+    // to trigger playback via the Speech API
+
+    // Save artifact metadata for playback
+    const artifactData = {
+      type: "speech",
+      text: resolvedText,
+      voice: voice,
+      speed: speed,
+      pitch: pitch,
+      mimeType: "audio/speech",
+      canPlay: true,
+    };
+
+    await createArtifact(
+      context,
+      `${artifactId}.speech.json`,
+      "application/json",
+      JSON.stringify(artifactData, null, 2)
+    );
+
+    // Actually speak the text (this is the action)
+    await new Promise((resolve, reject) => {
+      utterance.onend = resolve;
+      utterance.onerror = (e) => reject(new Error(`Speech failed: ${e.error}`));
+      window.speechSynthesis.speak(utterance);
+    });
+
+    context.addLog({
+      type: "success",
+      nodeId: context.nodeId,
+      nodeName: data.label || "Text to Speech",
+      message: `✅ Audio played successfully`,
+    });
+
+    // Return artifact-first structure
     return {
       output: {
+        artifactId: artifactId,
+        type: "audio",
+        mimeType: "audio/speech",
         text: resolvedText,
-        voice: data.voice || "default",
-        speed: data.speed || 1.0,
-        pitch: data.pitch || 1.0,
-        audioId: Date.now().toString(),
-        canPlay: true,
+        voice: voice,
+        speed: speed,
+        pitch: pitch,
+        played: true,
+        // Mark as executed (not simulated)
+        _executed: true,
       },
     };
   },
@@ -2131,11 +2266,27 @@ result if 'result' in dir() else None
         data: jsResult,
       });
 
+      // Save result as artifact if substantial
+      const artifactId = `python_${Date.now()}_${crypto
+        .randomUUID()
+        .slice(0, 8)}`;
+
+      if (jsResult !== null && jsResult !== undefined) {
+        await createArtifact(
+          context,
+          `${artifactId}.json`,
+          "application/json",
+          JSON.stringify({ result: jsResult, stdout }, null, 2)
+        );
+      }
+
       return {
         output: {
+          artifactId: artifactId,
           result: jsResult,
           stdout,
           duration,
+          _executed: true,
         },
       };
     } catch (error) {

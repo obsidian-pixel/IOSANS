@@ -1,0 +1,165 @@
+/**
+ * AudioPlayer Styles
+ */
+
+.audio-player {
+  background: linear-gradient(
+    145deg,
+    rgba(20, 20, 30, 0.95),
+    rgba(15, 15, 22, 0.98)
+  );
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 12px;
+  padding: 12px;
+  min-width: 250px;
+  max-width: 350px;
+}
+
+.audio-player-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.audio-icon {
+  font-size: 16px;
+}
+
+.audio-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  flex: 1;
+}
+
+.audio-id {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  font-family: var(--font-mono, monospace);
+}
+
+/* Waveform visualization */
+.audio-waveform {
+  position: relative;
+  height: 40px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.waveform-bars {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 100%;
+  padding: 6px;
+  gap: 2px;
+}
+
+.waveform-bar {
+  flex: 1;
+  background: linear-gradient(
+    to top,
+    rgba(99, 102, 241, 0.5),
+    rgba(99, 102, 241, 0.8)
+  );
+  border-radius: 2px;
+  transition: height 0.1s ease;
+  min-height: 4px;
+}
+
+.waveform-bar.active {
+  animation: waveformPulse 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes waveformPulse {
+  from {
+    transform: scaleY(0.8);
+    opacity: 0.6;
+  }
+  to {
+    transform: scaleY(1.2);
+    opacity: 1;
+  }
+}
+
+.progress-overlay {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: rgba(34, 211, 238, 0.15);
+  border-right: 2px solid rgba(34, 211, 238, 0.8);
+  transition: width 0.1s linear;
+}
+
+/* Controls */
+.audio-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.play-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: linear-gradient(
+    135deg,
+    rgba(99, 102, 241, 0.8),
+    rgba(99, 102, 241, 0.6)
+  );
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.play-btn:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(99, 102, 241, 1),
+    rgba(99, 102, 241, 0.8)
+  );
+  transform: scale(1.05);
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
+}
+
+.play-btn.playing {
+  background: linear-gradient(
+    135deg,
+    rgba(239, 68, 68, 0.8),
+    rgba(239, 68, 68, 0.6)
+  );
+}
+
+.time-display {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  font-family: var(--font-mono, monospace);
+}
+
+.separator {
+  margin: 0 4px;
+  opacity: 0.5;
+}
+
+/* Speech text preview */
+.speech-text {
+  margin-top: 10px;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+  font-style: italic;
+  line-height: 1.4;
+}

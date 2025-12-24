@@ -42,6 +42,7 @@ import WaitForApprovalNode from "../../nodes/ai/WaitForApprovalNode";
 import SubWorkflowNode from "../../nodes/ai/SubWorkflowNode";
 import SemanticRouterNode from "../../nodes/ai/SemanticRouterNode";
 import EvaluatorNode from "../../nodes/ai/EvaluatorNode";
+import SwarmNode from "../../nodes/ai/SwarmNode";
 import TextToSpeechNode from "../../nodes/ai-tools/TextToSpeechNode";
 import ImageGenerationNode from "../../nodes/ai-tools/ImageGenerationNode";
 import PythonExecutorNode from "../../nodes/ai-tools/PythonExecutorNode";
@@ -80,6 +81,7 @@ const nodeTypes = {
   imageGeneration: ImageGenerationNode,
   semanticRouter: SemanticRouterNode,
   evaluator: EvaluatorNode,
+  swarm: SwarmNode,
   output: OutputNode,
   groupNode: GroupNode,
 };

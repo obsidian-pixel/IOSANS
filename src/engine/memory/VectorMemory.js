@@ -15,12 +15,32 @@ class VectorMemory {
     this.name = "VectorMemory";
     this.db = null;
     this.embeddingDimension = 384; // Default for all-MiniLM-L6-v2
+    this.worker = null;
+    this.workerReady = false;
   }
 
   /**
-   * Initialize the database
+   * Initialize the database and embedding worker
    */
   async initialize() {
+    // Initialize Worker
+    if (!this.worker) {
+      this.worker = new Worker(
+        new URL("../embeddings/EmbeddingWorker.js", import.meta.url),
+        { type: "module" }
+      );
+
+      this.worker.onmessage = (e) => {
+        if (e.data.type === "ready") {
+          this.workerReady = true;
+          console.log("🧠 Embedding Worker ready");
+        }
+      };
+
+      // Preload model
+      this.worker.postMessage({ type: "load" });
+    }
+
     if (this.db) return this.db;
 
     return new Promise((resolve, reject) => {
@@ -230,36 +250,37 @@ class VectorMemory {
   }
 
   /**
-   * Simple text to embedding (placeholder - should use Transformers.js)
-   * Returns a random embedding for now
+   * Generate text embedding using local neural network
+   * Uses all-MiniLM-L6-v2 via Web Worker
    */
   async generateEmbedding(text) {
-    // TODO: Replace with actual embedding generation using Transformers.js
-    // For now, create a deterministic pseudo-embedding based on text hash
-    const hash = this.simpleHash(text);
-    const embedding = new Array(this.embeddingDimension);
+    await this.initialize();
 
-    for (let i = 0; i < this.embeddingDimension; i++) {
-      // Use hash to seed pseudo-random values
-      embedding[i] = Math.sin(hash * (i + 1)) * Math.cos(hash / (i + 1));
-    }
+    // Create a unique ID for this request
+    const id = Math.random().toString(36).substring(7);
 
-    // Normalize
-    const norm = Math.sqrt(embedding.reduce((sum, v) => sum + v * v, 0));
-    return embedding.map((v) => v / norm);
-  }
+    return new Promise((resolve, reject) => {
+      const handler = (e) => {
+        if (e.data.id === id) {
+          this.worker.removeEventListener("message", handler);
 
-  /**
-   * Simple hash function for deterministic embeddings
-   */
-  simpleHash(str) {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = (hash << 5) - hash + char;
-      hash = hash & hash;
-    }
-    return hash;
+          if (e.data.type === "result") {
+            resolve(e.data.embedding);
+          } else if (e.data.type === "error") {
+            reject(new Error(e.data.error));
+          }
+        }
+      };
+
+      this.worker.addEventListener("message", handler);
+      this.worker.postMessage({ type: "extract", text, id });
+
+      // Timeout after 30s
+      setTimeout(() => {
+        this.worker.removeEventListener("message", handler);
+        reject(new Error("Embedding generation timed out"));
+      }, 30000);
+    });
   }
 
   /**

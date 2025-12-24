@@ -327,6 +327,24 @@ export const NODE_TYPES = {
       regexPattern: "",
     },
   },
+
+  // Swarm Node - Parallel multi-agent execution
+  swarm: {
+    type: "swarm",
+    category: "ai",
+    name: "Swarm",
+    description: "Execute multiple AI agents in parallel and aggregate results",
+    icon: "🐝",
+    inputs: 1,
+    outputs: 2, // result, all
+    defaultData: {
+      label: "Swarm",
+      agentCount: 3,
+      aggregationMode: "consensus", // consensus, first, all
+      timeout: 30000,
+      systemPrompt: "",
+    },
+  },
   groupNode: {
     type: "groupNode",
     category: "logic",

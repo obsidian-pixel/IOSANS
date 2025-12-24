@@ -13,6 +13,8 @@ class ExecutionEngine {
     this.stepResolve = null;
     this.abortController = null;
     this.executedNodes = new Set();
+    // Track pending results for merge nodes (sync barrier)
+    this.pendingMerge = new Map(); // nodeId -> { expected: number, results: array }
   }
 
   /**
@@ -113,6 +115,49 @@ class ExecutionEngine {
     const node = this.nodeMap.get(nodeId);
     if (!node) {
       return { success: false, error: `Node ${nodeId} not found` };
+    }
+
+    // MERGE NODE SYNC BARRIER
+    // If this is a merge node in "wait" mode, wait for all incoming branches
+    if (node.type === "merge" && node.data?.mode !== "first") {
+      const incomingEdges = this.edges.filter((e) => e.target === nodeId);
+      const expectedCount = incomingEdges.length;
+
+      if (expectedCount > 1) {
+        // Initialize pending merge tracker if needed
+        if (!this.pendingMerge.has(nodeId)) {
+          this.pendingMerge.set(nodeId, {
+            expected: expectedCount,
+            results: [],
+          });
+        }
+
+        const pending = this.pendingMerge.get(nodeId);
+        pending.results.push(inputData);
+
+        // If not all branches arrived yet, skip execution
+        if (pending.results.length < pending.expected) {
+          this.executionStore.addLog({
+            type: "info",
+            nodeId,
+            nodeName: node.data?.label || "Merge",
+            message: `⏳ Waiting for ${
+              pending.expected - pending.results.length
+            } more branch(es)`,
+          });
+          return { success: true, output: inputData, waiting: true };
+        }
+
+        // All branches arrived - merge the results and continue
+        inputData = pending.results;
+        this.pendingMerge.delete(nodeId); // Clear for next execution
+        this.executionStore.addLog({
+          type: "info",
+          nodeId,
+          nodeName: node.data?.label || "Merge",
+          message: `✅ All ${expectedCount} branches arrived - merging`,
+        });
+      }
     }
 
     // Mark as executing
@@ -432,7 +477,8 @@ class ExecutionEngine {
   }
 
   /**
-   * Execute all nodes connected to this node's outputs
+   * Execute all nodes connected to this node's outputs (PARALLEL)
+   * Uses Promise.all() for simultaneous execution of sibling nodes
    */
   async executeNextNodes(nodeId, outputData, visited) {
     // Find all edges from this node's outputs
@@ -443,26 +489,24 @@ class ExecutionEngine {
       return { success: true, output: outputData };
     }
 
-    // Execute each connected node
-    const results = [];
+    // Record edge snapshots for Ghost Data debugging
     for (const edge of outgoingEdges) {
-      // Record edge snapshot for Ghost Data debugging
       if (this.executionStore?.addEdgeSnapshot) {
         this.executionStore.addEdgeSnapshot(edge.id, outputData);
       }
-
-      const result = await this.executeFromNode(
-        edge.target,
-        outputData,
-        visited
-      );
-      results.push(result);
     }
+
+    // Execute all connected nodes IN PARALLEL using Promise.all
+    const results = await Promise.all(
+      outgoingEdges.map((edge) =>
+        this.executeFromNode(edge.target, outputData, visited)
+      )
+    );
 
     // Return the last result (for linear flows) or aggregate for parallel
     return results.length === 1
       ? results[0]
-      : { success: true, outputs: results };
+      : { success: true, outputs: results, parallel: true };
   }
 
   /**

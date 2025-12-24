@@ -65,14 +65,22 @@ function App() {
     };
   }, []);
 
-  // Initialize WebLLM model on mount
+  // Initialize WebLLM model on mount (with guard for StrictMode double-invoke)
   useEffect(() => {
+    let cancelled = false;
+
     const initModel = async () => {
+      // Skip if already loading or loaded
+      if (webLLMService.isLoading || webLLMService.isReady) {
+        return;
+      }
+
       try {
         const selectedModel =
           localStorage.getItem("selectedModel") || "gemma-2-2b-it-q4f16_1-MLC";
 
         await webLLMService.initialize(selectedModel, (progress) => {
+          if (cancelled) return;
           setLoading(
             progress.progress,
             progress.text ||
@@ -80,14 +88,22 @@ function App() {
           );
         });
 
-        setReady(selectedModel);
+        if (!cancelled) {
+          setReady(selectedModel);
+        }
       } catch (error) {
-        console.error("Failed to initialize WebLLM:", error);
-        setError(error.message || "Failed to load AI model");
+        if (!cancelled) {
+          console.error("Failed to initialize WebLLM:", error);
+          setError(error.message || "Failed to load AI model");
+        }
       }
     };
 
     initModel();
+
+    return () => {
+      cancelled = true;
+    };
   }, [setLoading, setReady, setError]);
 
   // Listen for model switch events from ModelSwitcher

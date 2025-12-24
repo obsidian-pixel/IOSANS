@@ -210,6 +210,37 @@ function ModelSwitcher({ isOpen, onClose }) {
                   )}
 
                   <div className="model-actions">
+                    {/* VRAM Guard Warning */}
+                    {(() => {
+                      const detectedRAM = navigator.deviceMemory || 4;
+                      const vramStatus = useModelStore
+                        .getState()
+                        .getVRAMStatus(model.id, detectedRAM);
+
+                      if (
+                        vramStatus.status === "tight" ||
+                        vramStatus.status === "insufficient"
+                      ) {
+                        return (
+                          <div
+                            className="vram-warning"
+                            title={vramStatus.message}
+                            style={{
+                              fontSize: "0.75rem",
+                              color: vramStatus.color,
+                              marginBottom: "8px",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "4px",
+                            }}
+                          >
+                            <span>⚠️ {vramStatus.message}</span>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+
                     {modelStatus === "active" && (
                       <span className="status-badge active">✓ Active</span>
                     )}

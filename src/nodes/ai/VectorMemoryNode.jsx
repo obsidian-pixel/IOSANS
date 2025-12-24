@@ -34,6 +34,20 @@ function VectorMemoryNode({ data }) {
         {data.topK && mode === "query" && (
           <div className="config-preview">Top {data.topK} results</div>
         )}
+
+        <div
+          className="neural-badge"
+          style={{
+            marginTop: "8px",
+            fontSize: "0.7em",
+            color: "#8b5cf6",
+            display: "flex",
+            alignItems: "center",
+            gap: "4px",
+          }}
+        >
+          <span>🧠</span> Neural Embeddings
+        </div>
       </div>
     </BaseNode>
   );

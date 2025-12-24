@@ -152,6 +152,22 @@ async function executeTool(tool, input, context) {
 
   try {
     const result = await executeNode(toolNode, input, context);
+
+    // Validate artifact-first pattern for media tools
+    const mediaTypes = ["textToSpeech", "imageGeneration", "pythonExecutor"];
+    if (mediaTypes.includes(toolNode.type)) {
+      const output = result.output;
+      if (output && typeof output === "object" && !output._executed) {
+        // Tool returned but didn't actually execute - warn
+        context.addLog?.({
+          type: "warning",
+          nodeId: context.nodeId,
+          nodeName: context.nodeName || "AI Agent",
+          message: `⚠️ Tool "${tool.name}" returned without _executed flag - may be simulated`,
+        });
+      }
+    }
+
     return result;
   } catch (error) {
     return { error: error.message };

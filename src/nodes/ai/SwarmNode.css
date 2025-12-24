@@ -1,0 +1,125 @@
+/**
+ * SwarmNode Styles
+ */
+.swarm-node-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--node-gap, 8px);
+  padding: var(--node-padding, 8px);
+}
+
+.swarm-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.swarm-icon {
+  font-size: 1.2em;
+  animation: buzz 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes buzz {
+  0% {
+    transform: translateX(-1px) rotate(-2deg);
+  }
+  100% {
+    transform: translateX(1px) rotate(2deg);
+  }
+}
+
+.swarm-count {
+  color: var(--color-primary, #3b82f6);
+}
+
+.swarm-mode {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85em;
+}
+
+.mode-label {
+  color: var(--color-text-muted, #888);
+}
+
+.mode-value {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+  background: var(--color-surface-3, #333);
+}
+
+.mode-value.consensus {
+  color: #10b981;
+}
+
+.mode-value.first {
+  color: #f59e0b;
+}
+
+.mode-value.all {
+  color: #8b5cf6;
+}
+
+.swarm-agents {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 0;
+}
+
+.agent-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.agent-indicator:nth-child(1) {
+  animation-delay: 0s;
+}
+.agent-indicator:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.agent-indicator:nth-child(3) {
+  animation-delay: 0.4s;
+}
+.agent-indicator:nth-child(4) {
+  animation-delay: 0.6s;
+}
+.agent-indicator:nth-child(5) {
+  animation-delay: 0.8s;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+.agent-overflow {
+  font-size: 0.75em;
+  color: var(--color-text-muted, #888);
+  margin-left: 4px;
+}
+
+.swarm-timeout {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8em;
+  color: var(--color-text-muted, #888);
+}
+
+.timeout-value {
+  color: var(--color-text, #fff);
+}
