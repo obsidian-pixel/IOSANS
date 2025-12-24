@@ -481,7 +481,7 @@ Always respond with valid JSON. Do not include any text outside the JSON object.
       const fullSystemPrompt = finalSystemMessage + toolSystemPrompt;
 
       // Two-pass execution loop for tool calling
-      const MAX_TOOL_ITERATIONS = 5;
+      const MAX_TOOL_ITERATIONS = mergedData.maxIterations || 10;
       let iteration = 0;
       let conversationHistory = [...history];
       let currentUserMessage = currentMessage;

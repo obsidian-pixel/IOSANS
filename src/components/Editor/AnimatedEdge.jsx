@@ -8,6 +8,7 @@ import { useShallow } from "zustand/react/shallow";
 import useWorkflowStore from "../../store/workflowStore";
 import useExecutionStore from "../../store/executionStore";
 import { getSmartPath } from "../../utils/smartRouting";
+import { HANDLE_TYPES } from "../../utils/handleTypes";
 import "./AnimatedEdge.css";
 
 function AnimatedEdge({
@@ -56,35 +57,13 @@ function AnimatedEdge({
     return "workflow";
   }, [sourceHandleId, targetHandleId]);
 
-  // Get edge style based on handle type
-  const edgeStyle = useMemo(() => {
-    const baseStyle = { ...style };
+  // Derive color from HANDLE_TYPES
+  const edgeColor = useMemo(() => {
+    const typeDef = HANDLE_TYPES[handleType] || HANDLE_TYPES.workflow;
+    return typeDef.color;
+  }, [handleType]);
 
-    switch (handleType) {
-      case "model":
-        return {
-          ...baseStyle,
-          stroke: "#6366f1",
-          strokeDasharray: "5,5",
-        };
-      case "memory":
-        return {
-          ...baseStyle,
-          stroke: "#10b981",
-          strokeDasharray: "5,5",
-        };
-      case "tool":
-        return {
-          ...baseStyle,
-          stroke: "#f59e0b",
-          strokeDasharray: "5,5",
-        };
-      default:
-        return baseStyle;
-    }
-  }, [handleType, style]);
-
-  // Handle mouse enter on edge
+  // Handle mouse enter for hover effects
   const handleMouseEnter = useCallback(() => {
     if (hoverTimeoutRef.current) {
       clearTimeout(hoverTimeoutRef.current);
@@ -96,15 +75,14 @@ function AnimatedEdge({
     }
   }, [lastSnapshot]);
 
-  // Handle mouse leave on edge
+  // Handle mouse leave
   const handleMouseLeave = useCallback(() => {
     hoverTimeoutRef.current = setTimeout(() => {
       setIsHovered(false);
       setShowGhostData(false);
-    }, 400); // 400ms delay for moving to buttons
+    }, 400);
   }, []);
 
-  // Keep hover when on buttons
   const handleButtonAreaEnter = useCallback(() => {
     if (hoverTimeoutRef.current) {
       clearTimeout(hoverTimeoutRef.current);
@@ -113,8 +91,19 @@ function AnimatedEdge({
     setIsHovered(true);
   }, []);
 
-  // Custom Smart Path Routing
-  const [edgePath, labelX, labelY] = getSmartPath({
+  // Custom Smart Path Routing - Memoized to prevent heavy A* re-calculation on hover
+  const [edgePath, labelX, labelY] = useMemo(() => {
+    return getSmartPath({
+      sourceX,
+      sourceY,
+      sourcePosition,
+      targetX,
+      targetY,
+      targetPosition,
+      nodes,
+      excludeNodeIds: [source, target],
+    });
+  }, [
     sourceX,
     sourceY,
     sourcePosition,
@@ -122,9 +111,9 @@ function AnimatedEdge({
     targetY,
     targetPosition,
     nodes,
-    excludeNodeIds: [source, target],
-    gap: 50,
-  });
+    source,
+    target,
+  ]);
 
   // Handle button clicks
   const onDeleteEdge = useCallback(
@@ -154,16 +143,28 @@ function AnimatedEdge({
     [id, labelX, labelY]
   );
 
-  // Format timestamp for display
   const formatTime = (ts) => {
     if (!ts) return "";
     const date = new Date(ts);
     return date.toLocaleTimeString();
   };
 
+  // Dynamic style for active/AI edges
+  const edgeClassName = `animated-edge ${
+    isHovered ? "hovered" : ""
+  } edge-${handleType} ${lastSnapshot ? "has-data" : ""} ${
+    isEdgeActive ? "flowing" : ""
+  }`;
+
+  // Merge custom color into style
+  const mergedStyle = {
+    ...style,
+    "--edge-color": edgeColor,
+  };
+
   return (
     <>
-      {/* Invisible wider path for hover detection - this is crucial */}
+      {/* Invisible wider path for hover detection */}
       <path
         d={edgePath}
         fill="none"
@@ -174,28 +175,12 @@ function AnimatedEdge({
         onMouseLeave={handleMouseLeave}
       />
 
-      {/* Animated edge path */}
+      {/* Main Visible Path - Handles everything including animation */}
       <BaseEdge
         path={edgePath}
         markerEnd={markerEnd}
-        style={{
-          ...edgeStyle,
-          strokeWidth: isHovered ? 3 : isEdgeActive ? 2.5 : 2,
-        }}
-        className={`animated-edge ${
-          isHovered ? "hovered" : ""
-        } edge-${handleType} ${lastSnapshot ? "has-data" : ""} ${
-          isEdgeActive ? "edge-active" : ""
-        }`}
-      />
-
-      {/* Flow animation overlay */}
-      <path
-        className={`edge-flow-animation ${isEdgeActive ? "flowing" : ""}`}
-        d={edgePath}
-        fill="none"
-        strokeWidth={2}
-        style={{ pointerEvents: "none" }}
+        style={mergedStyle}
+        className={edgeClassName}
       />
 
       {/* Hover UI - Action Buttons */}

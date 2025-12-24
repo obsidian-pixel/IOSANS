@@ -24,6 +24,16 @@ import FileSystemConfig from "./configs/FileSystemConfig";
 import LocalStorageConfig from "./configs/LocalStorageConfig";
 import OutputConfig from "./configs/OutputConfig";
 import ChatModelConfig from "./configs/ChatModelConfig";
+import SwarmConfig from "./configs/SwarmConfig";
+import SemanticRouterConfig from "./configs/SemanticRouterConfig";
+import EvaluatorConfig from "./configs/EvaluatorConfig";
+import ImageGenConfig from "./configs/ImageGenConfig";
+import MergeConfig from "./configs/MergeConfig";
+import SubWorkflowConfig from "./configs/SubWorkflowConfig";
+import WaitForApprovalConfig from "./configs/WaitForApprovalConfig";
+import BrowserEventConfig from "./configs/BrowserEventConfig";
+import WebhookTriggerConfig from "./configs/WebhookTriggerConfig";
+import ErrorTriggerConfig from "./configs/ErrorTriggerConfig";
 
 import "./NodeConfigPanel.css";
 
@@ -45,6 +55,16 @@ const configComponents = {
   localStorage: LocalStorageConfig,
   output: OutputConfig,
   chatModel: ChatModelConfig,
+  swarm: SwarmConfig,
+  semanticRouter: SemanticRouterConfig,
+  evaluator: EvaluatorConfig,
+  imageGeneration: ImageGenConfig,
+  merge: MergeConfig,
+  subWorkflow: SubWorkflowConfig,
+  waitForApproval: WaitForApprovalConfig,
+  browserEventTrigger: BrowserEventConfig,
+  webhookTrigger: WebhookTriggerConfig,
+  errorTrigger: ErrorTriggerConfig,
 };
 
 function NodeConfigPanel() {

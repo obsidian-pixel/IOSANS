@@ -1,62 +1,63 @@
 /**
- * AnimatedEdge Styles - Premium Design
+ * AnimatedEdge Styles - Premium Single-Path Design
  */
-
-/* ============================================
-   Animated Edge Path
-   ============================================ */
-
-.animated-edge {
-  stroke: var(--color-action, #3b82f6);
-  stroke-dasharray: 5 5;
-  animation: flowAnimation 1s linear infinite;
-  transition: stroke 0.2s, stroke-width 0.2s;
-}
-
-.animated-edge.hovered {
-  stroke: #60a5fa;
-  filter: drop-shadow(0 0 6px rgba(96, 165, 250, 0.4));
-}
-
+/* Global Dash Animation for All Edges */
 @keyframes flowAnimation {
   from {
-    stroke-dashoffset: 24;
+    stroke-dashoffset: 30;
   }
   to {
     stroke-dashoffset: 0;
   }
 }
 
-/* Edge type colors */
-.animated-edge.edge-model {
-  stroke: #8b5cf6;
+.animated-edge {
+  fill: none;
+  stroke: #666; /* Default edge color */
+  stroke-width: 2px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: stroke-width 0.2s, stroke 0.2s, filter 0.2s;
+
+  /* Universal Animation */
+  stroke-dasharray: 10 5;
+  animation: flowAnimation 1s linear infinite;
+  opacity: 0.8;
 }
 
-.animated-edge.edge-memory {
-  stroke: #10b981;
+/* Edge Hover State */
+.animated-edge.hovered {
+  filter: drop-shadow(0 0 4px rgba(99, 102, 241, 0.5));
+  stroke-width: 3px;
+  stroke: #6366f1;
+  opacity: 1;
 }
 
-.animated-edge.edge-tool {
-  stroke: #f59e0b;
+/* Active Flow State (Just Color Change + Faster) */
+.animated-edge.flowing {
+  stroke: #3b82f6; /* Blue */
+  stroke-width: 2.5px;
+  filter: drop-shadow(0 0 2px rgba(59, 130, 246, 0.4));
+  animation-duration: 0.5s; /* Faster flow when active */
+  opacity: 1;
 }
 
-/* Flow animation overlay */
+/* Specific Handle Types - Color managed via --edge-color variable */
+/* No overriding styles needed here as stroke comes from variable */
+
+/* Hide legacy dual-path elements if any remain */
 .edge-flow-animation {
-  stroke: rgba(255, 255, 255, 0.3);
-  stroke-dasharray: 4 12;
-  animation: flowAnimation 0.8s linear infinite;
-  pointer-events: none;
+  display: none !important;
 }
 
-/* Hover area (invisible but clickable) */
+/* Edge Hover Area (invisible hit box) */
 .edge-hover-area {
   cursor: pointer;
 }
 
 /* ============================================
-   Edge Action Buttons - Premium Design
+   Edge Action Buttons
    ============================================ */
-
 .edge-action-container {
   opacity: 0;
   visibility: hidden;
@@ -122,21 +123,14 @@
   border: 1px solid rgba(239, 68, 68, 0.3);
   color: #fca5a5;
 }
-
 .edge-btn-delete:hover {
   background: linear-gradient(
     135deg,
     rgba(239, 68, 68, 0.4),
     rgba(239, 68, 68, 0.25)
   );
-  border-color: rgba(239, 68, 68, 0.6);
-  color: #fff;
   transform: scale(1.1);
-  box-shadow: 0 0 16px rgba(239, 68, 68, 0.4);
-}
-
-.edge-btn-delete:active {
-  transform: scale(0.95);
+  color: white;
 }
 
 /* Add Node Button */
@@ -149,53 +143,17 @@
   border: 1px solid rgba(34, 197, 94, 0.3);
   color: #86efac;
 }
-
 .edge-btn-add:hover {
   background: linear-gradient(
     135deg,
     rgba(34, 197, 94, 0.4),
     rgba(34, 197, 94, 0.25)
   );
-  border-color: rgba(34, 197, 94, 0.6);
-  color: #fff;
   transform: scale(1.1);
-  box-shadow: 0 0 16px rgba(34, 197, 94, 0.4);
+  color: white;
 }
 
-.edge-btn-add:active {
-  transform: scale(0.95);
-}
-
-/* Tooltip for buttons */
-.edge-btn::after {
-  content: attr(title);
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 4px 8px;
-  background: rgba(0, 0, 0, 0.85);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 500;
-  white-space: nowrap;
-  border-radius: 6px;
-  opacity: 0;
-  visibility: hidden;
-  transition: all 0.15s ease;
-  margin-bottom: 6px;
-  pointer-events: none;
-}
-
-.edge-btn:hover::after {
-  opacity: 1;
-  visibility: visible;
-}
-
-/* ============================================
-   Ghost Data Tooltip
-   ============================================ */
-
+/* Ghost Data Tooltip */
 .ghost-data-tooltip {
   background: linear-gradient(
     145deg,
@@ -205,13 +163,11 @@
   backdrop-filter: blur(16px);
   border: 1px solid rgba(99, 102, 241, 0.35);
   border-radius: 14px;
-  padding: 0;
   min-width: 260px;
   max-width: 380px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5),
-    0 0 0 1px rgba(99, 102, 241, 0.15) inset;
   z-index: 1001;
   overflow: hidden;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
   animation: ghostSlideIn 0.2s ease;
 }
 
@@ -239,10 +195,6 @@
   border-bottom: 1px solid rgba(99, 102, 241, 0.2);
 }
 
-.ghost-icon {
-  font-size: 18px;
-}
-
 .ghost-title {
   font-size: 13px;
   font-weight: 600;
@@ -253,13 +205,12 @@
 .ghost-time {
   font-size: 10px;
   color: rgba(255, 255, 255, 0.45);
-  font-weight: 500;
 }
 
 .ghost-preview {
   margin: 0;
   padding: 12px 14px;
-  font-family: var(--font-mono, "JetBrains Mono", monospace);
+  font-family: var(--font-mono, monospace);
   font-size: 11px;
   line-height: 1.5;
   color: #a5f3fc;
@@ -268,38 +219,4 @@
   overflow-y: auto;
   white-space: pre-wrap;
   word-break: break-word;
-}
-
-/* Has data indicator on edge */
-.animated-edge.has-data {
-  filter: drop-shadow(0 0 4px rgba(99, 102, 241, 0.35));
-}
-
-.animated-edge.has-data.hovered {
-  filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.5));
-}
-
-/* ============================================
-   Edge Active State (Execution/Thinking)
-   ============================================ */
-
-.animated-edge.edge-active {
-  stroke: #22d3ee;
-  animation: edgePulse 1.5s ease-in-out infinite;
-}
-
-@keyframes edgePulse {
-  0%,
-  100% {
-    filter: drop-shadow(0 0 4px rgba(34, 211, 238, 0.4));
-  }
-  50% {
-    filter: drop-shadow(0 0 10px rgba(34, 211, 238, 0.7));
-  }
-}
-
-.edge-flow-animation.flowing {
-  stroke: rgba(34, 211, 238, 0.6);
-  stroke-dasharray: 8 8;
-  animation: flowAnimation 0.4s linear infinite;
 }

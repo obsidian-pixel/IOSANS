@@ -108,6 +108,8 @@ function WorkflowEditor() {
   // Workflow store
   const nodes = useWorkflowStore((state) => state.nodes);
   const edges = useWorkflowStore((state) => state.edges);
+  const previewNodes = useWorkflowStore((state) => state.previewNodes);
+  const previewEdges = useWorkflowStore((state) => state.previewEdges);
   const onNodesChange = useWorkflowStore((state) => state.onNodesChange);
   const onEdgesChange = useWorkflowStore((state) => state.onEdgesChange);
   const onConnect = useWorkflowStore((state) => state.onConnect);
@@ -549,8 +551,8 @@ function WorkflowEditor() {
   return (
     <div className="workflow-editor" ref={reactFlowWrapper}>
       <ReactFlow
-        nodes={nodes}
-        edges={edges}
+        nodes={[...nodes, ...previewNodes]}
+        edges={[...edges, ...previewEdges]}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}

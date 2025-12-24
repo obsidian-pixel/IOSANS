@@ -7,21 +7,62 @@ import useModelStore from "../../store/modelStore";
 /**
  * ActionCard Component - Renders action blocks with Preview/Apply buttons
  */
-function ActionCard({ actions, isFixAction }) {
+import useWorkflowStore from "../../store/workflowStore"; // Import store
+
+function ActionCard({ actions, isFixAction, onRevise }) {
   const [isApplied, setIsApplied] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);
 
+  // Store actions
+  const setPreview = useWorkflowStore((state) => state.setPreview);
+  const clearPreview = useWorkflowStore((state) => state.clearPreview);
+  const commitPreview = useWorkflowStore((state) => state.commitPreview);
+
   const handlePreview = () => {
-    setIsPreviewing(!isPreviewing);
-    // TODO: Implement ghost node preview on canvas
-    console.log("Preview actions:", actions);
+    if (!isPreviewing) {
+      // Turn ON preview
+      const nodes = actions
+        .filter((a) => a.type === "addNode")
+        .map((a) => a.node);
+
+      const edges = actions
+        .filter((a) => a.type === "addEdge")
+        .map((a) => ({
+          id: `preview-e-${Math.random()}`,
+          source: a.source,
+          target: a.target,
+          sourceHandle: a.sourceHandle,
+          targetHandle: a.targetHandle,
+        }));
+
+      setPreview(nodes, edges);
+      setIsPreviewing(true);
+    } else {
+      // Turn OFF preview
+      clearPreview();
+      setIsPreviewing(false);
+    }
   };
 
   const handleApply = () => {
     if (isApplied) return;
-    overseerService.executeActions(actions);
+
+    if (isPreviewing) {
+      // If previewing, just commit what's there
+      commitPreview();
+    } else {
+      // Otherwise execute normally via service (legacy path) or just set state
+      // But for "Ghost-Build", we should probably use the same commit logic if possible
+      // However, the original overseerService.executeActions is likely still robust.
+      // Let's stick to the store logic for consistency if new actions are just nodes/edges.
+
+      // For now, let's keep using overseerService for generic execution as it handles updates/deletes too
+      overseerService.executeActions(actions);
+    }
+
     setIsApplied(true);
     setIsPreviewing(false);
+    clearPreview(); // Ensure ghosts are gone
   };
 
   const actionSummary = useMemo(() => {
@@ -47,6 +88,14 @@ function ActionCard({ actions, isFixAction }) {
       </div>
 
       <div className="action-card-actions">
+        <button
+          className="btn-revise"
+          onClick={onRevise}
+          disabled={isApplied || isPreviewing}
+          title="Make changes to this plan"
+        >
+          📝 Revise
+        </button>
         {!isFixAction && (
           <button
             className={`btn-preview ${isPreviewing ? "active" : ""}`}
@@ -121,7 +170,7 @@ function parseMessageContent(content) {
 /**
  * MessageContent Component - Renders message with action cards
  */
-function MessageContent({ content }) {
+function MessageContent({ content, onRevise }) {
   const parts = useMemo(() => parseMessageContent(content), [content]);
 
   return (
@@ -133,6 +182,7 @@ function MessageContent({ content }) {
               key={idx}
               actions={part.actions}
               isFixAction={part.isFixAction}
+              onRevise={() => onRevise(part.actions)}
             />
           );
         }
@@ -217,6 +267,20 @@ export default function OverseerPanel({ isOpen, onClose }) {
       offsetX: e.clientX - position.x,
       offsetY: e.clientY - position.y,
     };
+  };
+
+  const handleRevise = () => {
+    // 1. Clear preview if active
+    useWorkflowStore.getState().clearPreview();
+
+    // 2. Prefill input with revision context
+    setInput("I'd like to make changes to this plan: ");
+
+    // 3. Focus input (timeout to ensure render)
+    setTimeout(() => {
+      const textarea = document.querySelector(".overseer-input");
+      if (textarea) textarea.focus();
+    }, 100);
   };
 
   const handleSend = async () => {
@@ -364,7 +428,7 @@ export default function OverseerPanel({ isOpen, onClose }) {
                 msg.isErrorAnalysis ? "error-analysis" : ""
               }`}
             >
-              <MessageContent content={msg.content} />
+              <MessageContent content={msg.content} onRevise={handleRevise} />
             </div>
           ))}
           {isLoading && (

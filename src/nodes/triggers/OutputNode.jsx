@@ -5,6 +5,7 @@
 import { memo, useMemo } from "react";
 import BaseNode from "../base/BaseNode";
 import { AudioPlayer, ImageLightbox } from "../../components/MediaPreview";
+import MarkdownRenderer from "../../components/MarkdownRenderer/MarkdownRenderer";
 import { autoDetectType } from "../../utils/autoDetectType";
 import "./OutputNode.css";
 
@@ -72,11 +73,21 @@ function OutputNode({ data }) {
         return <ImageLightbox data={{ url: lastOutput }} />;
       }
 
-      // Text preview
+      // Text preview - Try Markdown first
+      const isLikelyMarkdown =
+        lastOutput.includes("#") ||
+        lastOutput.includes("**") ||
+        lastOutput.includes("```") ||
+        lastOutput.includes("- ");
+
+      if (isLikelyMarkdown) {
+        return <MarkdownRenderer content={lastOutput} />;
+      }
+
       return (
         <div className="output-preview-text">
-          {lastOutput.slice(0, 100)}
-          {lastOutput.length > 100 && "..."}
+          {lastOutput.slice(0, 300)}
+          {lastOutput.length > 300 && "..."}
         </div>
       );
     }

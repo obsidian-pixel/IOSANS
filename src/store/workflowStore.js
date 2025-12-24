@@ -14,6 +14,10 @@ const useWorkflowStore = create((set, get) => ({
   nodes: [],
   edges: [],
 
+  // Ghost/Preview State
+  previewNodes: [],
+  previewEdges: [],
+
   // Selection
   selectedNodeId: null,
   configOpen: false, // Only true when config panel should be open
@@ -99,6 +103,54 @@ const useWorkflowStore = create((set, get) => ({
       nodes: data.nodes || [],
       edges: data.edges || [],
       selectedNodeId: null,
+    });
+  },
+  // Preview Mode Actions
+  setPreview: (nodes, edges) => {
+    set({
+      previewNodes: nodes.map((n) => ({
+        ...n,
+        id: n.id || `preview-${Math.random()}`,
+        className: "node-ghost",
+        draggable: false,
+        selectable: false,
+      })),
+      previewEdges: edges.map((e) => ({
+        ...e,
+        id: e.id || `preview-edge-${Math.random()}`,
+        className: "edge-ghost",
+        animated: true,
+      })),
+    });
+  },
+
+  clearPreview: () => set({ previewNodes: [], previewEdges: [] }),
+
+  commitPreview: () => {
+    const { nodes, edges, previewNodes, previewEdges } = get();
+    // Remove ghost flags and merge
+    const realNodes = previewNodes.map((node) => {
+      // eslint-disable-next-line no-unused-vars
+      const { className, draggable, selectable, ...n } = node;
+      return {
+        ...n,
+        selected: false,
+      };
+    });
+    const realEdges = previewEdges.map((edge) => {
+      // eslint-disable-next-line no-unused-vars
+      const { className, ...e } = edge;
+      return {
+        ...e,
+        type: "animated", // Ensure correct edge type
+      };
+    });
+
+    set({
+      nodes: [...nodes, ...realNodes],
+      edges: [...edges, ...realEdges],
+      previewNodes: [],
+      previewEdges: [],
     });
   },
 }));

@@ -125,6 +125,43 @@ function getProactiveSuggestions(nodes, edges) {
 }
 
 /**
+ * Estimate available VRAM based on device memory and concurrency
+ * @returns {number} Estimated VRAM in GB
+ */
+function detectHardware() {
+  // 1. Browser API: deviceMemory (RAM in GB)
+  // Most browser-based local LLMs effectively share system RAM (Unified Memory)
+  const deviceMemory = navigator.deviceMemory || 4; // Fallback to 4GB if unsupported
+
+  // 2. Browser API: hardwareConcurrency (CPU Threads)
+  // High thread count often correlates with better hardware
+  const threads = navigator.hardwareConcurrency || 4;
+
+  // Heuristic:
+  // - If deviceMemory is high (>=16), robust machine -> assume ~12GB usable for WebGL/WebGPU
+  // - If deviceMemory is medium (8), mid-range -> assume ~6GB usable
+  // - If low (<8), low-end -> assume ~2-4GB usable
+
+  let estimatedVRAM = 4; // Baseline conservative
+
+  if (deviceMemory >= 16) {
+    estimatedVRAM = 12; // High-end (User has 16GB+ RAM)
+  } else if (deviceMemory >= 8) {
+    estimatedVRAM = 6; // Mid-range (8GB RAM usually leaves ~6GB free max)
+  } else {
+    estimatedVRAM = Math.max(2, deviceMemory - 2); // Low-end (4GB RAM -> 2GB usable)
+  }
+
+  // Adjust by concurrency if memory info is missing or generic
+  // High threads (12+) but low reported memory might imply a desktop without deviceMemory API support
+  if (!navigator.deviceMemory && threads >= 12) {
+    estimatedVRAM = 8; // Boost estimate for likely desktop CPU
+  }
+
+  return estimatedVRAM;
+}
+
+/**
  * Check VRAM requirements for a model and return warnings
  * @param {string} modelId - The model ID to check
  * @returns {object|null} Warning object if VRAM might be exceeded
@@ -141,9 +178,8 @@ function checkResourceWarnings(modelId) {
 
   if (!requiredVRAM) return null;
 
-  // Estimate available VRAM (conservative estimate for browser-based)
-  // Most devices have 4-8GB shared GPU memory in browser context
-  const estimatedAvailable = 8; // GB - conservative default
+  // Estimate available VRAM based on Hardware
+  const estimatedAvailable = detectHardware();
 
   if (requiredVRAM > estimatedAvailable) {
     // Find a smaller alternative
@@ -307,17 +343,42 @@ You have **DIRECT CONTROL** over the workflow canvas. You can build, edit, and r
 - **Control**: Output JSON with \`runWorkflow\`, \`clearCanvas\`.
 - **Teach**: Output JSON with \`startTutorial\`.
 
-## Response Format
-- **Chatting**: Text only.
-- **Acting**: **ONLY** valid JSON inside a code block. NO explanation text outside the block if you are building the whole request.
+## 🧱 STRICT RESPONSE SCHEMA
+You must **ONLY** return JSON that matches this TypeScript interface. Do not wrap in markdown unless absolutely necessary.
 
-\`\`\`json
-{
-  "actions": [
-    { "type": "addNode", "nodeType": "aiAgent", ... },
-    { "type": "addEdge", ... }
-  ]
+\`\`\`typescript
+interface WorkflowActions {
+  actions: (AddNodeAction | AddEdgeAction | UpdateNodeAction | DeleteAction | ControlAction)[];
 }
+
+interface AddNodeAction {
+  type: "addNode";
+  nodeType: string; // Must be one of Valid Node Types
+  config?: Record<string, any>; // e.g., { prompt: "..." }
+  label?: string; // Title of the node
+}
+
+interface AddEdgeAction {
+  type: "addEdge";
+  source: string; // Node ID
+  target: string; // Node ID
+  sourceHandle?: string;
+  targetHandle?: string;
+}
+
+interface UpdateNodeAction {
+  type: "updateNode";
+  nodeId: string;
+  config: Record<string, any>;
+}
+
+// Example Output:
+// {
+//   "actions": [
+//     { "type": "addNode", "nodeType": "aiAgent", "config": { "model": "gpt-4o" } },
+//     { "type": "addEdge", "source": "node-1", "target": "node-2" }
+//   ]
+// }
 \`\`\`
 `;
 
@@ -646,6 +707,43 @@ class OverseerService {
   }
 
   /**
+   * Get execution context for debugging
+   */
+  getExecutionContext() {
+    const { nodeResults, logs, isRunning, startTime, endTime } =
+      useExecutionStore.getState();
+
+    // summarize logs (last 20 logs or errors)
+    const recentLogs = logs
+      .filter(
+        (l) =>
+          l.type === "error" || l.type === "warning" || l.type === "success"
+      )
+      .slice(-20)
+      .map(
+        (l) =>
+          `[${l.type.toUpperCase()}] ${l.nodeName || "System"}: ${l.message}`
+      );
+
+    // summarize results (avoid huge payloads)
+    const resultsSummary = Object.entries(nodeResults).map(
+      ([nodeId, result]) => {
+        const resultStr = JSON.stringify(result.output);
+        return `${nodeId}: ${
+          resultStr.length > 200 ? resultStr.slice(0, 200) + "..." : resultStr
+        }`;
+      }
+    );
+
+    return {
+      status: isRunning ? "RUNNING" : endTime ? "COMPLETED" : "IDLE",
+      duration: endTime ? endTime - startTime + "ms" : "N/A",
+      results: resultsSummary,
+      recentLogs: recentLogs,
+    };
+  }
+
+  /**
    * Send a message to the Overseer
    * @param {string} userMessage
    * @returns {Promise<string>} The assistant's response text
@@ -709,6 +807,11 @@ class OverseerService {
     const systemPrompt =
       SYSTEM_PROMPT.replace("{{NODE_REFERENCE}}", nodeReference) +
       `\n\n### Current Canvas State\n${context}` +
+      `\n\n### Recent Execution Context\n${JSON.stringify(
+        this.getExecutionContext(),
+        null,
+        2
+      )}` +
       (proactiveSuggestions.length > 0
         ? `\n\n### Proactive Suggestions\nBased on the current canvas, consider mentioning:\n${proactiveSuggestions
             .map((s) => `- ${s.message}`)
@@ -763,31 +866,44 @@ class OverseerService {
       let jsonContent = null;
 
       // 1. Try to find code blocks with strict or loose formatting
-      const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+      const jsonMatch = text.match(
+        /```(?:json|typescript)?\s*([\s\S]*?)\s*```/i
+      );
 
       if (jsonMatch) {
         jsonContent = jsonMatch[1];
       } else {
-        // 2. Fallback: Extract raw JSON object if no code blocks found
-        // This handles cases where the model just outputs the JSON
+        // 2. Fallback: Extract raw JSON object
+        // Find the first '{' and the last '}'
         const firstBrace = text.indexOf("{");
         const lastBrace = text.lastIndexOf("}");
+
         if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
           jsonContent = text.substring(firstBrace, lastBrace + 1);
         }
       }
 
       if (jsonContent) {
-        // Clean up any potential leading/trailing non-json text inside the block/extraction
+        // Clean up: Remove potential trailing commas (naive regex approach)
+        // or just try to parse.
+        // Note: For now, standard JSON.parse is strict, but we can clean some common issues
+
         const cleanJson = jsonContent.trim();
         const parsed = JSON.parse(cleanJson);
 
         if (parsed.actions && Array.isArray(parsed.actions)) {
           return parsed.actions;
         }
+
+        // Handle case where LLM returns array directly
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
       }
     } catch (e) {
       console.warn("Failed to parse Overseer actions:", e);
+      // Fallback: If JSON.parse fails, it might be due to trailing commas or comments.
+      // In a real app, we might use 'json5' or a more robust parser here.
     }
     return [];
   }
