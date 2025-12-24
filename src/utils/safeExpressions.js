@@ -509,7 +509,7 @@ class SafeExpressionEvaluator {
         this.advance();
         return token.value;
 
-      case TOKEN_TYPES.IDENTIFIER:
+      case TOKEN_TYPES.IDENTIFIER: {
         this.advance();
         const name = token.value;
 
@@ -519,14 +519,16 @@ class SafeExpressionEvaluator {
         }
 
         throw new Error(`Unknown identifier: ${name}`);
+      }
 
-      case TOKEN_TYPES.LPAREN:
+      case TOKEN_TYPES.LPAREN: {
         this.advance();
         const result = this.parseTernary();
         this.expect(TOKEN_TYPES.RPAREN);
         return result;
+      }
 
-      case TOKEN_TYPES.LBRACKET:
+      case TOKEN_TYPES.LBRACKET: {
         // Array literal
         this.advance();
         const arr = [];
@@ -539,6 +541,7 @@ class SafeExpressionEvaluator {
         }
         this.expect(TOKEN_TYPES.RBRACKET);
         return arr;
+      }
 
       default:
         throw new Error(`Unexpected token: ${token.type}`);

@@ -150,7 +150,7 @@ class VectorMemory {
   /**
    * Get all vectors in a namespace
    */
-  async getAll(namespace = null, context = {}) {
+  async getAll(namespace = null) {
     await this.initialize();
 
     return new Promise((resolve, reject) => {

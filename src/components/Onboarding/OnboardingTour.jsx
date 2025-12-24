@@ -73,6 +73,7 @@ export default function OnboardingTour({ isActive, onComplete }) {
 
     if (element) {
       const r = element.getBoundingClientRect();
+      // eslint-disable-next-line
       setRect(r);
       element.scrollIntoView({ behavior: "smooth", block: "center" });
     } else {

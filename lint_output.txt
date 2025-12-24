@@ -1,0 +1,222 @@
+
+> iosans@0.0.0 lint
+> eslint .
+
+
+D:\DEVELOPER PROJECTS\IOSANS\src\App.test.jsx
+   1:18  error  'screen' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+   4:1   error  'test' is not defined                                                          no-undef
+  10:3   error  'expect' is not defined                                                        no-undef
+
+D:\DEVELOPER PROJECTS\IOSANS\src\components\CommandPalette\CommandPalette.jsx
+  67:7  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  65 |       inputRef.current.focus();
+  66 |       // Reset state when reopening
+> 67 |       setSearchTerm("");
+     |       ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  68 |       setSelectedIndex(0);
+  69 |     }
+  70 |   }, [isOpen]);  react-hooks/set-state-in-effect
+
+D:\DEVELOPER PROJECTS\IOSANS\src\components\LiveThinking\LiveThinking.jsx
+  98:17  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+D:\DEVELOPER PROJECTS\IOSANS\src\components\NodeConfig\configs\ManualTriggerConfig.jsx
+  29:30  error  Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+  27 |     if (!newFieldName.trim()) return;
+  28 |
+> 29 |     const fieldId = `field_${Date.now()}`;
+     |                              ^^^^^^^^^^ Cannot call impure function
+  30 |     const newField = {
+  31 |       id: fieldId,
+  32 |       name: newFieldName.trim(),  react-hooks/purity
+
+D:\DEVELOPER PROJECTS\IOSANS\src\components\Onboarding\OnboardingTour.jsx
+  76:7  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  74 |     if (element) {
+  75 |       const r = element.getBoundingClientRect();
+> 76 |       setRect(r);
+     |       ^^^^^^^ Avoid calling setState() directly within an effect
+  77 |       element.scrollIntoView({ behavior: "smooth", block: "center" });
+  78 |     } else {
+  79 |       // Fallback if element not found (e.g. dynamic elements)  react-hooks/set-state-in-effect
+
+D:\DEVELOPER PROJECTS\IOSANS\src\components\Toast\Toast.jsx
+  10:14  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+D:\DEVELOPER PROJECTS\IOSANS\src\components\WorkflowManager\WorkflowManager.jsx
+  40:7  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  38 |   useEffect(() => {
+  39 |     if (isOpen) {
+> 40 |       loadWorkflowsList();
+     |       ^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  41 |     }
+  42 |   }, [isOpen, loadWorkflowsList]);
+  43 |  react-hooks/set-state-in-effect
+
+D:\DEVELOPER PROJECTS\IOSANS\src\data\nodeDocsData.js
+  123:17  error  Unnecessary escape character: \*  no-useless-escape
+
+D:\DEVELOPER PROJECTS\IOSANS\src\engine\agents\CriticAgent.js
+  189:41  error  'options' is defined but never used  no-unused-vars
+  189:50  error  'context' is defined but never used  no-unused-vars
+
+D:\DEVELOPER PROJECTS\IOSANS\src\engine\memory\VectorMemory.js
+  153:34  error  'context' is assigned a value but never used  no-unused-vars
+
+D:\DEVELOPER PROJECTS\IOSANS\src\engine\planning\DecompositionEngine.js
+   63:61  error  'context' is defined but never used  no-unused-vars
+  123:44  error  Unnecessary escape character: \.     no-useless-escape
+  123:46  error  Unnecessary escape character: \)     no-useless-escape
+  123:69  error  Unnecessary escape character: \.     no-useless-escape
+  123:71  error  Unnecessary escape character: \)     no-useless-escape
+
+D:\DEVELOPER PROJECTS\IOSANS\src\engine\planning\PlanningService.js
+  283:30  error  'context' is defined but never used          no-unused-vars
+  298:33  error  'context' is defined but never used          no-unused-vars
+  310:27  error  'previousResults' is defined but never used  no-unused-vars
+
+D:\DEVELOPER PROJECTS\IOSANS\src\engine\swarm\SwarmCoordinator.js
+  103:7  error  'maxRounds' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\DEVELOPER PROJECTS\IOSANS\src\engine\tools\BrowserToolkit.js
+  182:30  error  'html2canvas' is not defined  no-undef
+
+D:\DEVELOPER PROJECTS\IOSANS\src\nodes\actions\FileSystemNode.jsx
+  23:15  error  Error: This value cannot be modified
+
+Modifying component props or hook arguments is not allowed. Consider using a local variable instead.
+
+  21 |             onChange={(e) => {
+  22 |               setOperation(e.target.value);
+> 23 |               data.operation = e.target.value;
+     |               ^^^^ `data` cannot be modified
+  24 |             }}
+  25 |             className="op-select"
+  26 |           >                      react-hooks/immutability
+  41:15  error  Error: This value cannot be modified
+
+Modifying component props or hook arguments is not allowed. Consider using a local variable instead.
+
+  39 |             onChange={(e) => {
+  40 |               setPath(e.target.value);
+> 41 |               data.path = e.target.value;
+     |               ^^^^ `data` cannot be modified
+  42 |             }}
+  43 |             className="path-input"
+  44 |             placeholder="./path/to/file"  react-hooks/immutability
+
+D:\DEVELOPER PROJECTS\IOSANS\src\nodes\actions\HTTPRequestNode.jsx
+  11:5  error  Error: This value cannot be modified
+
+Modifying component props or hook arguments is not allowed. Consider using a local variable instead.
+
+   9 |   const handleMethodChange = (e) => {
+  10 |     setMethod(e.target.value);
+> 11 |     data.method = e.target.value;
+     |     ^^^^ `data` cannot be modified
+  12 |   };
+  13 |
+  14 |   const handleUrlChange = (e) => {  react-hooks/immutability
+  16:5  error  Error: This value cannot be modified
+
+Modifying component props or hook arguments is not allowed. Consider using a local variable instead.
+
+  14 |   const handleUrlChange = (e) => {
+  15 |     setUrl(e.target.value);
+> 16 |     data.url = e.target.value;
+     |     ^^^^ `data` cannot be modified
+  17 |   };
+  18 |
+  19 |   return (                                   react-hooks/immutability
+
+D:\DEVELOPER PROJECTS\IOSANS\src\nodes\actions\PythonExecutorNode.jsx
+  13:5  error  Error: This value cannot be modified
+
+Modifying component props or hook arguments is not allowed. Consider using a local variable instead.
+
+  11 |     setCode(e.target.value);
+  12 |     // Simple mock update
+> 13 |     data.code = e.target.value;
+     |     ^^^^ `data` cannot be modified
+  14 |   };
+  15 |
+  16 |   return (  react-hooks/immutability
+
+D:\DEVELOPER PROJECTS\IOSANS\src\nodes\ai\ImageGenerationNode.jsx
+  21:13  error  Error: This value cannot be modified
+
+Modifying component props or hook arguments is not allowed. Consider using a local variable instead.
+
+  19 |           onChange={(e) => {
+  20 |             setPrompt(e.target.value);
+> 21 |             data.prompt = e.target.value;
+     |             ^^^^ `data` cannot be modified
+  22 |           }}
+  23 |           className="prompt-input"
+  24 |           placeholder="Describe image..."  react-hooks/immutability
+
+D:\DEVELOPER PROJECTS\IOSANS\src\nodes\ai\TextToSpeechNode.jsx
+  23:13  error  Error: This value cannot be modified
+
+Modifying component props or hook arguments is not allowed. Consider using a local variable instead.
+
+  21 |           onChange={(e) => {
+  22 |             setVoice(e.target.value);
+> 23 |             data.voice = e.target.value;
+     |             ^^^^ `data` cannot be modified
+  24 |           }}
+  25 |         >
+  26 |           <option value="default">Default Voice</option>   react-hooks/immutability
+  37:13  error  Error: This value cannot be modified
+
+Modifying component props or hook arguments is not allowed. Consider using a local variable instead.
+
+  35 |           onChange={(e) => {
+  36 |             setText(e.target.value);
+> 37 |             data.text = e.target.value;
+     |             ^^^^ `data` cannot be modified
+  38 |           }}
+  39 |           className="tts-input"
+  40 |           placeholder="Enter text..."  react-hooks/immutability
+
+D:\DEVELOPER PROJECTS\IOSANS\src\nodes\base\BaseNode.jsx
+  83:9  error  'effectiveIsActive' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\DEVELOPER PROJECTS\IOSANS\src\utils\hardwareDetection.js
+  84:14  error  '_error' is defined but never used  no-unused-vars
+
+D:\DEVELOPER PROJECTS\IOSANS\src\utils\safeExpressions.js
+  514:9  error  Unexpected lexical declaration in case block  no-case-declarations
+  525:9  error  Unexpected lexical declaration in case block  no-case-declarations
+  532:9  error  Unexpected lexical declaration in case block  no-case-declarations
+
+D:\DEVELOPER PROJECTS\IOSANS\src\utils\smartRouting.js
+  41:9  error  'isInsideObstacle' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+Γ£û 37 problems (37 errors, 0 warnings)
+

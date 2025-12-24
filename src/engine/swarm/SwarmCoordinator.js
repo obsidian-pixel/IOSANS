@@ -100,7 +100,6 @@ class SwarmCoordinator {
   async runSwarm(task, options = {}, context = {}) {
     const {
       agents = ["coordinator", "coder", "researcher"],
-      maxRounds = 5,
       temperature = 0.7,
       maxTokens = 2000,
     } = options;

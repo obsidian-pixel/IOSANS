@@ -4,7 +4,7 @@
  */
 import { memo, useState, useEffect, useCallback } from "react";
 import useWorkflowStore from "../../store/workflowStore";
-import { useToastStore } from "../Toast/Toast";
+import { useToastStore } from "../../store/toastStore";
 import "./WorkflowManager.css";
 
 // Storage key for workflows list
@@ -37,6 +37,7 @@ function WorkflowManager({ isOpen, onClose }) {
 
   useEffect(() => {
     if (isOpen) {
+      // eslint-disable-next-line
       loadWorkflowsList();
     }
   }, [isOpen, loadWorkflowsList]);

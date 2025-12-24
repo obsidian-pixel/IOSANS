@@ -5,7 +5,7 @@
 import { memo, useCallback, useRef, useState, useEffect } from "react";
 import useWorkflowStore from "../../store/workflowStore";
 import useExecutionStore from "../../store/executionStore";
-import { useToastStore } from "../Toast/Toast";
+import { useToastStore } from "../../store/toastStore";
 import TutorialModal from "./TutorialModal";
 import DocsModal from "./DocsModal";
 import {

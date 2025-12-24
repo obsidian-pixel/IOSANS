@@ -1,0 +1,63 @@
+/**
+ * MergeNode Styles
+ * Visual styling for the parallel branch merge node
+ */
+
+.merge-node-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px;
+}
+
+.merge-mode {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.mode-icon {
+  font-size: 14px;
+}
+
+.mode-text {
+  color: var(--text-secondary, #a1a1aa);
+}
+
+.merge-inputs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  padding: 4px 8px;
+  background: var(--bg-tertiary, #27272a);
+  border-radius: 4px;
+}
+
+.inputs-label {
+  color: var(--text-tertiary, #71717a);
+}
+
+.inputs-count {
+  color: var(--node-color, #10b981);
+  font-weight: 600;
+}
+
+.merge-aggregator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border-color, #3f3f46);
+}
+
+.agg-label {
+  color: var(--text-tertiary, #71717a);
+}
+
+.agg-value {
+  color: var(--text-secondary, #a1a1aa);
+  text-transform: capitalize;
+}

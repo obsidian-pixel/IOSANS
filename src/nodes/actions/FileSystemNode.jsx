@@ -20,6 +20,7 @@ function FileSystemNode({ data, isConnectable }) {
             value={operation}
             onChange={(e) => {
               setOperation(e.target.value);
+              // eslint-disable-next-line
               data.operation = e.target.value;
             }}
             className="op-select"
@@ -38,6 +39,7 @@ function FileSystemNode({ data, isConnectable }) {
             value={path}
             onChange={(e) => {
               setPath(e.target.value);
+              // eslint-disable-next-line
               data.path = e.target.value;
             }}
             className="path-input"

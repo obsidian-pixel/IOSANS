@@ -186,7 +186,7 @@ Analyze for accuracy, hallucinations, and reasoning gaps.`;
   /**
    * Quick review for re-checking corrections
    */
-  async quickReview(question, response, options, context) {
+  async quickReview(question, response) {
     const quickPrompt = `Quick check: Does this response to "${question.slice(
       0,
       100

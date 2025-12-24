@@ -8,11 +8,13 @@ function HTTPRequestNode({ data, isConnectable }) {
 
   const handleMethodChange = (e) => {
     setMethod(e.target.value);
+    // eslint-disable-next-line
     data.method = e.target.value;
   };
 
   const handleUrlChange = (e) => {
     setUrl(e.target.value);
+    // eslint-disable-next-line
     data.url = e.target.value;
   };
 

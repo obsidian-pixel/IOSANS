@@ -1,0 +1,89 @@
+/**
+ * EvaluatorNode Styles
+ * Visual styling for the output validation evaluator
+ */
+
+.evaluator-node-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px;
+}
+
+.eval-type {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.eval-icon {
+  font-size: 14px;
+}
+
+.eval-label {
+  color: var(--text-primary, #fafafa);
+  text-transform: capitalize;
+  font-weight: 500;
+}
+
+.eval-retries {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  padding: 4px 8px;
+  background: var(--bg-tertiary, #27272a);
+  border-radius: 4px;
+}
+
+.retries-label {
+  color: var(--text-tertiary, #71717a);
+}
+
+.retries-count {
+  color: var(--node-color, #f59e0b);
+  font-weight: 600;
+}
+
+.eval-schema {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  overflow: hidden;
+}
+
+.schema-label {
+  color: var(--text-tertiary, #71717a);
+  white-space: nowrap;
+}
+
+.schema-preview {
+  color: var(--text-secondary, #a1a1aa);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eval-modes {
+  display: flex;
+  gap: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border-color, #3f3f46);
+}
+
+.mode-chip {
+  padding: 2px 6px;
+  font-size: 9px;
+  border-radius: 4px;
+  background: var(--bg-tertiary, #27272a);
+  color: var(--text-tertiary, #71717a);
+}
+
+.mode-chip.active {
+  background: linear-gradient(135deg, var(--node-color, #f59e0b), transparent);
+  background-color: rgba(245, 158, 11, 0.2);
+  color: var(--node-color, #f59e0b);
+  border: 1px solid var(--node-color, #f59e0b);
+}

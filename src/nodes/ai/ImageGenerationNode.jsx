@@ -18,6 +18,7 @@ function ImageGenerationNode({ data, isConnectable }) {
           value={prompt}
           onChange={(e) => {
             setPrompt(e.target.value);
+            // eslint-disable-next-line
             data.prompt = e.target.value;
           }}
           className="prompt-input"

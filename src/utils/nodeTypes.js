@@ -270,13 +270,61 @@ export const NODE_TYPES = {
     type: "merge",
     category: "logic",
     name: "Merge",
-    description: "Combine multiple inputs",
+    description: "Combine multiple inputs (wait for all or first)",
     icon: "🔗",
     inputs: 2,
     outputs: 1,
     defaultData: {
       label: "Merge",
       mode: "wait", // wait (all inputs), first (first to complete)
+      inputCount: 2,
+      aggregator: "array", // array, object, concat
+    },
+  },
+
+  // Semantic Router Node - AI-powered intent classification
+  semanticRouter: {
+    type: "semanticRouter",
+    category: "ai",
+    name: "Semantic Router",
+    description: "Route input to outputs based on semantic classification",
+    icon: "🧭",
+    inputs: 1,
+    outputs: 4, // Dynamic based on routes
+    defaultData: {
+      label: "Router",
+      classificationMode: "keyword", // keyword, llm, embedding
+      routes: [
+        { id: "route-0", label: "General", keywords: ["general", "other"] },
+        {
+          id: "route-1",
+          label: "Technical",
+          keywords: ["code", "programming", "bug"],
+        },
+        {
+          id: "route-2",
+          label: "Creative",
+          keywords: ["story", "write", "creative"],
+        },
+      ],
+    },
+  },
+
+  // Evaluator Node - Self-correction validation
+  evaluator: {
+    type: "evaluator",
+    category: "ai",
+    name: "Evaluator",
+    description: "Validate output against schema for self-correction loops",
+    icon: "🔍",
+    inputs: 1,
+    outputs: 2, // pass, retry
+    defaultData: {
+      label: "Evaluator",
+      evaluationType: "schema", // schema, regex, llm
+      maxRetries: 3,
+      schema: null,
+      regexPattern: "",
     },
   },
   groupNode: {

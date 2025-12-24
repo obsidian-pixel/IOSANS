@@ -81,7 +81,7 @@ export async function detectHardware() {
             gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || "Unknown GPU";
         }
       }
-    } catch (_error) {
+    } catch {
       // WebGL detection failed silently
     }
   }

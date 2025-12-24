@@ -10,6 +10,7 @@ function PythonExecutorNode({ data, isConnectable }) {
   const handleChange = (e) => {
     setCode(e.target.value);
     // Simple mock update
+    // eslint-disable-next-line
     data.code = e.target.value;
   };
 

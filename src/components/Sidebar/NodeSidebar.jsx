@@ -6,7 +6,7 @@ import { memo, useState, useMemo, useCallback } from "react";
 import { getNodesByCategory, NODE_CATEGORIES } from "../../utils/nodeTypes";
 import { WORKFLOW_TEMPLATES } from "../../data/templates";
 import useWorkflowStore from "../../store/workflowStore";
-import { useToastStore } from "../Toast/Toast";
+import { useToastStore } from "../../store/toastStore";
 import "./NodeSidebar.css";
 
 // Get nodes grouped by category

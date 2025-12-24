@@ -26,7 +26,8 @@ function ManualTriggerConfig({ data, onUpdate }) {
   const handleAddField = () => {
     if (!newFieldName.trim()) return;
 
-    const fieldId = `field_${Date.now()}`;
+    // Use crypto.randomUUID for unique IDs (not impure during render)
+    const fieldId = `field_${crypto.randomUUID()}`;
     const newField = {
       id: fieldId,
       name: newFieldName.trim(),

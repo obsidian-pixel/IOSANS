@@ -120,7 +120,7 @@ export const NODE_DOCS = {
 - \`*\` = any value
 - \`,\` = value list (1,3,5)
 - \`-\` = range (1-5)
-- \`/\` = step (\*/5 = every 5)
+- \`/\` = step (*/5 = every 5)
 
 **Output Schema:**
 \`\`\`javascript

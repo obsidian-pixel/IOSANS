@@ -37,17 +37,6 @@ export function getSmartPath({
       };
     });
 
-  // Check if a point is inside any obstacle
-  const isInsideObstacle = (px, py, padding = gap) => {
-    return obstacles.some(
-      (o) =>
-        px > o.left - padding &&
-        px < o.right + padding &&
-        py > o.top - padding &&
-        py < o.bottom + padding
-    );
-  };
-
   // Check if a line segment (horizontal or vertical) intersects any obstacle
   const lineIntersectsObstacle = (x1, y1, x2, y2, padding = gap) => {
     const minX = Math.min(x1, x2);

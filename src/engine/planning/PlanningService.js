@@ -280,14 +280,9 @@ Respond with ONLY a valid JSON plan.`;
   /**
    * Execute think action
    */
-  async executeThink(inputs, context) {
+  async executeThink(inputs) {
     const response = await webLLMService.generateWithHistory(
-      `Think about: ${inputs.topic || inputs.query || JSON.stringify(inputs)}`,
-      [],
-      {
-        systemPrompt: "You are a thoughtful reasoning assistant.",
-        maxTokens: 500,
-      }
+      `Think about: ${inputs.topic || inputs.query || JSON.stringify(inputs)}`
     );
     return { thought: response };
   }
@@ -295,7 +290,7 @@ Respond with ONLY a valid JSON plan.`;
   /**
    * Execute generate action
    */
-  async executeGenerate(inputs, context) {
+  async executeGenerate(inputs) {
     const response = await webLLMService.generateWithHistory(
       inputs.prompt || JSON.stringify(inputs),
       [],
@@ -307,7 +302,7 @@ Respond with ONLY a valid JSON plan.`;
   /**
    * Execute validate action
    */
-  executeValidate(inputs, previousResults) {
+  executeValidate(inputs) {
     const { assertion } = inputs;
     // Simple validation - check if assertion is truthy
     const isValid = Boolean(assertion);

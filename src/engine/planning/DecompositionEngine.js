@@ -60,7 +60,7 @@ class DecompositionEngine {
   /**
    * Build task tree recursively
    */
-  async buildTaskTree(task, depth, maxDepth, minComplexity, context) {
+  async buildTaskTree(task, depth, maxDepth, minComplexity) {
     const taskNode = {
       id: `task_${depth}_${Date.now()}`,
       task,
@@ -120,7 +120,7 @@ class DecompositionEngine {
     }
 
     // Pattern 2: Numbered items "1. X 2. Y"
-    const numberedPattern = /(?:^|\s)(\d+)[\.\)]\s*(.+?)(?=(?:\s\d+[\.\)])|$)/g;
+    const numberedPattern = /(?:^|\s)(\d+)[.)]\s*(.+?)(?=(?:\s\d+[.)])|$)/g;
     let match;
     while ((match = numberedPattern.exec(task)) !== null) {
       subtasks.push({

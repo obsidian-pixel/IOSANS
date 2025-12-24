@@ -80,7 +80,7 @@ function BaseNode({
   const isSupportingActive =
     isRunning && activeSupportingNodeIds.includes(nodeId);
   // Supporting nodes get a visually distinct active state
-  const effectiveIsActive = isActive || isSupportingActive;
+  // const effectiveIsActive = isActive || isSupportingActive; // Removed unused
 
   const isSelected = selectedNodeId === nodeId;
   const hasResult = nodeResults[nodeId] !== undefined;

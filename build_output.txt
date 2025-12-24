@@ -1,0 +1,47 @@
+
+> iosans@0.0.0 build
+> vite build
+
+[36mvite v7.3.0 [32mbuilding client environment for production...[36m[39m
+transforming...
+[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+434 |     Google Fonts Import
+435 |     ============================================ */
+436 |  @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&d...
+    |  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+437 |  
+[32mΓ£ô[39m 585 modules transformed.
+[plugin vite:reporter] 
+(!) D:/DEVELOPER PROJECTS/IOSANS/src/utils/cdnLoader.js is dynamically imported by D:/DEVELOPER PROJECTS/IOSANS/src/engine/NodeExecutors.js but also statically imported by D:/DEVELOPER PROJECTS/IOSANS/src/components/NodeConfig/configs/CodeExecutorConfig.jsx, dynamic import will not move module into another chunk.
+
+rendering chunks...
+computing gzip size...
+[2mdist/[22m[32mregisterSW.js                     [39m[1m[2m    0.13 kB[22m[1m[22m
+[2mdist/[22m[32mmanifest.webmanifest              [39m[1m[2m    0.50 kB[22m[1m[22m
+[2mdist/[22m[32mindex.html                        [39m[1m[2m    2.15 kB[22m[1m[22m[2m Γöé gzip:   0.92 kB[22m
+[2mdist/[22m[32massets/webllm.worker-Ch0B_N4r.js  [39m[1m[2m5,513.26 kB[22m[1m[22m
+[2mdist/[22m[35massets/index-DoRRC3Mz.css         [39m[1m[2m  135.25 kB[22m[1m[22m[2m Γöé gzip:  22.45 kB[22m
+[2mdist/[22m[36massets/index-jjSquvv0.js          [39m[1m[33m  821.96 kB[39m[22m[2m Γöé gzip: 252.53 kB[22m
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+[32mΓ£ô built in 5.55s[39m
+error during build:
+Error: 
+  Configure "workbox.maximumFileSizeToCacheInBytes" to change the limit: the default value is 2 MiB.
+  Check https://vite-pwa-org.netlify.app/guide/faq.html#missing-assets-from-sw-precache-manifest for more information.
+  Assets exceeding the limit:
+  - assets/webllm.worker-Ch0B_N4r.js is 5.51 MB, and won't be precached.
+
+    at logWorkboxResult (file:///D:/DEVELOPER%20PROJECTS/IOSANS/node_modules/vite-plugin-pwa/dist/chunk-G4TAN34B.js:44:13)
+    at generateServiceWorker (file:///D:/DEVELOPER%20PROJECTS/IOSANS/node_modules/vite-plugin-pwa/dist/index.js:209:3)
+    at async _generateSW (file:///D:/DEVELOPER%20PROJECTS/IOSANS/node_modules/vite-plugin-pwa/dist/index.js:234:5)
+    at async Object.handler (file:///D:/DEVELOPER%20PROJECTS/IOSANS/node_modules/vite-plugin-pwa/dist/index.js:427:13)
+    at async PluginDriver.hookParallel (file:///D:/DEVELOPER%20PROJECTS/IOSANS/node_modules/rollup/dist/es/shared/node-entry.js:22398:17)
+    at async Object.close (file:///D:/DEVELOPER%20PROJECTS/IOSANS/node_modules/rollup/dist/es/shared/node-entry.js:23417:13)
+    at async buildEnvironment (file:///D:/DEVELOPER%20PROJECTS/IOSANS/node_modules/vite/dist/node/chunks/config.js:33554:15)
+    at async Object.build (file:///D:/DEVELOPER%20PROJECTS/IOSANS/node_modules/vite/dist/node/chunks/config.js:33899:19)
+    at async Object.buildApp (file:///D:/DEVELOPER%20PROJECTS/IOSANS/node_modules/vite/dist/node/chunks/config.js:33896:153)
+    at async CAC.<anonymous> (file:///D:/DEVELOPER%20PROJECTS/IOSANS/node_modules/vite/dist/node/cli.js:629:3)

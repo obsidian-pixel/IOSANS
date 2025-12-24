@@ -14,7 +14,7 @@ import "@xyflow/react/dist/style.css";
 
 import useWorkflowStore from "../../store/workflowStore";
 import useExecutionStore from "../../store/executionStore";
-import { useToastStore } from "../Toast/Toast";
+import { useToastStore } from "../../store/toastStore";
 import { isValidConnection } from "../../utils/validation";
 import { createNode, getNodeColor, NODE_TYPES } from "../../utils/nodeTypes";
 import ContextMenu from "../ContextMenu/ContextMenu";
@@ -40,6 +40,8 @@ import ChatModelNode from "../../nodes/ai/ChatModelNode";
 import VectorMemoryNode from "../../nodes/ai/VectorMemoryNode";
 import WaitForApprovalNode from "../../nodes/ai/WaitForApprovalNode";
 import SubWorkflowNode from "../../nodes/ai/SubWorkflowNode";
+import SemanticRouterNode from "../../nodes/ai/SemanticRouterNode";
+import EvaluatorNode from "../../nodes/ai/EvaluatorNode";
 import TextToSpeechNode from "../../nodes/ai-tools/TextToSpeechNode";
 import ImageGenerationNode from "../../nodes/ai-tools/ImageGenerationNode";
 import PythonExecutorNode from "../../nodes/ai-tools/PythonExecutorNode";
@@ -76,6 +78,8 @@ const nodeTypes = {
   subWorkflow: SubWorkflowNode,
   textToSpeech: TextToSpeechNode,
   imageGeneration: ImageGenerationNode,
+  semanticRouter: SemanticRouterNode,
+  evaluator: EvaluatorNode,
   output: OutputNode,
   groupNode: GroupNode,
 };

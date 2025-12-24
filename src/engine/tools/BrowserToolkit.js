@@ -3,6 +3,7 @@
  * Browser API integrations for local-first AI capabilities
  * Provides access to File System, Clipboard, IndexedDB, and more
  */
+import html2canvas from "html2canvas";
 
 // Tool registry
 const BROWSER_TOOLS = {

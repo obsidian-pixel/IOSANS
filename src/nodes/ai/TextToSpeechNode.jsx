@@ -20,6 +20,7 @@ function TextToSpeechNode({ data, isConnectable }) {
           value={voice}
           onChange={(e) => {
             setVoice(e.target.value);
+            // eslint-disable-next-line
             data.voice = e.target.value;
           }}
         >
@@ -34,6 +35,7 @@ function TextToSpeechNode({ data, isConnectable }) {
           value={text}
           onChange={(e) => {
             setText(e.target.value);
+            // eslint-disable-next-line
             data.text = e.target.value;
           }}
           className="tts-input"

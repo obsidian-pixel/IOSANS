@@ -64,6 +64,7 @@ function CommandPalette({ isOpen, onClose, onSelectNode, insertPosition }) {
     if (isOpen && inputRef.current) {
       inputRef.current.focus();
       // Reset state when reopening
+      // eslint-disable-next-line
       setSearchTerm("");
       setSelectedIndex(0);
     }
