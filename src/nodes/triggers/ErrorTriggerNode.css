@@ -1,0 +1,35 @@
+/**
+ * ErrorTriggerNode Styles
+ */
+.error-trigger-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.error-icon {
+  font-size: 24px;
+}
+
+.watch-mode {
+  font-size: 11px;
+  color: var(--color-text-muted, #888);
+}
+
+.watch-all {
+  color: var(--color-warning, #f59e0b);
+}
+
+.watch-specific {
+  color: var(--color-accent, #6366f1);
+}
+
+.retry-badge {
+  font-size: 10px;
+  padding: 2px 8px;
+  background: var(--color-surface-alt, rgba(0, 0, 0, 0.2));
+  border-radius: 4px;
+  color: var(--color-text-muted, #888);
+}

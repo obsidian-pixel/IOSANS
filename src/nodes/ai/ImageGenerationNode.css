@@ -1,0 +1,82 @@
+.image-gen-node {
+  background: #20202a;
+  border: 1px solid #f472b6;
+  border-radius: 8px;
+  min-width: 260px;
+  color: #fff;
+  font-family: "Inter", sans-serif;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.image-gen-node .node-header {
+  background: #2a2a35;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid #f472b6;
+}
+
+.image-gen-node .node-icon {
+  font-size: 1.2rem;
+}
+
+.image-gen-node .node-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #f472b6;
+}
+
+.image-gen-node .node-content {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.image-gen-node label {
+  font-size: 0.75rem;
+  color: #aaa;
+  margin-bottom: 2px;
+}
+
+.image-gen-node .prompt-input {
+  background: #111;
+  border: 1px solid #333;
+  color: #ccc;
+  padding: 8px;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 0.8rem;
+  resize: vertical;
+}
+
+.image-gen-node .image-preview {
+  background: #000;
+  border: 1px dashed #444;
+  border-radius: 4px;
+  height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.image-gen-node .image-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.image-gen-node .image-preview .placeholder {
+  color: #555;
+  font-size: 0.8rem;
+}
+
+.image-gen-node .handle-input {
+  background: #fff;
+}
+
+.image-gen-node .handle-output {
+  background: #f472b6;
+}

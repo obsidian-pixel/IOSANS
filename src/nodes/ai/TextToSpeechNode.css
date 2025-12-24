@@ -1,0 +1,69 @@
+.tts-node {
+  background: #20202a;
+  border: 1px solid #10b981;
+  border-radius: 8px;
+  min-width: 240px;
+  color: #fff;
+  font-family: "Inter", sans-serif;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.tts-node .node-header {
+  background: #2a2a35;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid #10b981;
+}
+
+.tts-node .node-icon {
+  font-size: 1.2rem;
+}
+
+.tts-node .node-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #10b981;
+}
+
+.tts-node .node-content {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tts-node label {
+  font-size: 0.75rem;
+  color: #aaa;
+  margin-bottom: 2px;
+}
+
+.tts-node .voice-select {
+  background: #111;
+  border: 1px solid #333;
+  color: white;
+  padding: 6px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
+.tts-node .tts-input {
+  background: #111;
+  border: 1px solid #333;
+  color: #ccc;
+  padding: 8px;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 0.8rem;
+  resize: vertical;
+}
+
+.tts-node .handle-input {
+  background: #fff;
+}
+
+.tts-node .handle-output {
+  background: #10b981;
+}

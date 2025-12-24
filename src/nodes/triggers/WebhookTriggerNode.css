@@ -1,0 +1,54 @@
+/**
+ * WebhookTriggerNode Styles
+ */
+.webhook-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.method-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: var(--color-success-alpha, rgba(34, 197, 94, 0.2));
+  color: var(--color-success, #22c55e);
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font-mono, monospace);
+}
+
+.endpoint-display {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--color-surface-alt, rgba(0, 0, 0, 0.2));
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.endpoint-display:hover {
+  background: var(--color-surface-hover, rgba(0, 0, 0, 0.3));
+}
+
+.endpoint-path {
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  color: var(--color-text, #fff);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.copy-hint {
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.auth-badge {
+  font-size: 10px;
+  color: var(--color-warning, #f59e0b);
+}

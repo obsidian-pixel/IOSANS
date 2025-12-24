@@ -1,0 +1,76 @@
+.http-node {
+  background: #1e293b;
+  border: 1px solid #3b82f6;
+  border-radius: 8px;
+  min-width: 300px;
+  color: #fff;
+  font-family: "Inter", sans-serif;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.http-node .node-header {
+  background: #25334d;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid #3b82f6;
+}
+
+.http-node .node-icon {
+  font-size: 1.2rem;
+}
+
+.http-node .node-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #60a5fa;
+}
+
+.http-node .node-content {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.http-node .input-group {
+  display: flex;
+  gap: 8px;
+}
+
+.http-node .method-select {
+  background: #0f172a;
+  border: 1px solid #334155;
+  color: #fff;
+  padding: 4px;
+  border-radius: 4px;
+  font-weight: bold;
+}
+
+.http-node .url-input {
+  flex: 1;
+  background: #0f172a;
+  border: 1px solid #334155;
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
+.http-node .headers-preview {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.http-node .handle-input {
+  background: #fff;
+}
+
+.http-node .handle-output {
+  background: #3b82f6;
+}
+
+.http-node .handle-error {
+  background: #ef4444;
+}

@@ -1,0 +1,47 @@
+/**
+ * PythonExecutorNode Styles
+ */
+.python-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: center;
+}
+
+.python-icon {
+  font-size: 24px;
+}
+
+.python-label {
+  font-size: 11px;
+  color: var(--color-warning, #f59e0b);
+  font-weight: 500;
+}
+
+.code-preview {
+  font-family: var(--font-mono, monospace);
+  font-size: 9px;
+  background: var(--color-surface-alt, rgba(0, 0, 0, 0.2));
+  padding: 6px;
+  border-radius: 4px;
+  text-align: left;
+  max-height: 50px;
+  overflow: hidden;
+  color: var(--color-text-muted, #888);
+  white-space: pre;
+}
+
+.packages-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: center;
+}
+
+.package-badge {
+  font-size: 9px;
+  padding: 2px 6px;
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--color-action, #3b82f6);
+  border-radius: 8px;
+}

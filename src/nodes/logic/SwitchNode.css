@@ -1,0 +1,134 @@
+/**
+ * SwitchNode Styles
+ * Dynamic routing node with labeled outputs
+ */
+
+.switch-node {
+  background-color: var(--bg-node);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  min-width: 160px;
+  max-width: 200px;
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-fast);
+  border-top: 3px solid var(--node-color, #ffab00);
+}
+
+.switch-node:hover {
+  border-color: var(--border-light);
+  box-shadow: var(--shadow-lg);
+}
+
+.switch-node.selected {
+  border-color: var(--node-color, #ffab00);
+  box-shadow: 0 0 0 2px rgba(255, 171, 0, 0.3), var(--shadow-lg);
+}
+
+.switch-node.active {
+  border-color: var(--color-success);
+  box-shadow: 0 0 20px rgba(0, 200, 83, 0.4);
+}
+
+.switch-node.error {
+  border-color: var(--color-error);
+}
+
+/* Header */
+.switch-node .node-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-bottom: 1px solid var(--border-color);
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.switch-node .node-icon {
+  font-size: 14px;
+}
+
+.switch-node .node-label {
+  flex: 1;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Body */
+.switch-node .node-body {
+  padding: var(--spacing-sm) var(--spacing-md);
+}
+
+.switch-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.field-label {
+  font-size: 9px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.field-value {
+  font-size: 11px;
+  color: #ffab00;
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+
+/* Route labels */
+.switch-routes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.route-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  background: rgba(255, 171, 0, 0.08);
+}
+
+.route-value {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: #ffab00;
+  font-weight: 500;
+}
+
+.route-arrow {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* Handles */
+.switch-node .circle-handle {
+  width: 10px !important;
+  height: 10px !important;
+  border-radius: 50% !important;
+  background-color: var(--bg-secondary) !important;
+  border: 2px solid var(--node-color, #ffab00) !important;
+  transition: all 0.15s ease;
+}
+
+.switch-node .circle-handle:hover {
+  transform: scale(1.3);
+  background-color: var(--node-color, #ffab00) !important;
+}
+
+.switch-node .default-handle {
+  border-color: #888 !important;
+}
+
+.switch-node .default-handle:hover {
+  background-color: #888 !important;
+}

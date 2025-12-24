@@ -1,0 +1,45 @@
+/**
+ * FileSystemNode Styles
+ */
+.filesystem-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mode-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--color-accent-alpha, rgba(99, 102, 241, 0.15));
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.mode-icon {
+  font-size: 14px;
+}
+
+.mode-label {
+  color: var(--color-accent, #6366f1);
+}
+
+.filename-display {
+  background: var(--color-surface-alt, rgba(0, 0, 0, 0.2));
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+
+.filename {
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  color: var(--color-text, #fff);
+}
+
+.picker-hint {
+  font-size: 10px;
+  color: var(--color-text-muted, #888);
+  font-style: italic;
+}

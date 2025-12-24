@@ -1,0 +1,57 @@
+/**
+ * ImageGenerationNode Styles
+ */
+.imagegen-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.imagegen-icon {
+  font-size: 24px;
+}
+
+.model-info {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--color-purple, #a855f7);
+}
+
+.model-name {
+  text-transform: capitalize;
+}
+
+.imagegen-config {
+  display: flex;
+  gap: 8px;
+}
+
+.size-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  background: var(--color-surface-alt, rgba(0, 0, 0, 0.2));
+  border-radius: 4px;
+  font-family: var(--font-mono, monospace);
+  color: var(--color-text-muted, #888);
+}
+
+.provider-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  background: var(--color-accent-alpha, rgba(99, 102, 241, 0.15));
+  border-radius: 4px;
+  color: var(--color-accent, #6366f1);
+}
+
+.negative-prompt-indicator {
+  font-size: 10px;
+  color: var(--color-warning, #f59e0b);
+}
+
+.seed-info {
+  font-size: 10px;
+  color: var(--color-text-muted, #888);
+  font-family: var(--font-mono, monospace);
+}
