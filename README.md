@@ -31,14 +31,17 @@ IOSANS puts you in control. No cloud subscriptions. No data leaks. No vendor loc
 - **MiniMap**: Bird's-eye view for complex workflows
 - **Context Menus**: Right-click actions for quick operations
 - **Keyboard Shortcuts**: Full keyboard navigation (Ctrl+S, Ctrl+D, etc.)
+- **4-Axis Port System**: Diamond handles for resources, circles for data flow
 
 ### 🤖 Local AI (WebLLM)
 
 - **100% Browser-Based**: All inference runs locally via WebGPU
-- **Multiple Models**: Gemma 2, Phi-3.5, Llama 3.2, Qwen, SmolLM
+- **Multiple Models**: Gemma 2, Phi-3.5, Llama 3.2, Qwen 3, SmolLM
 - **Zero Data Leakage**: Your prompts never leave your device
-- **Tool Calling**: Connect nodes as callable AI tools
+- **JSON-Mode Tool Calling**: AI Agent executes connected tool nodes via structured JSON
+- **Two-Pass Execution**: Tools return results to LLM for final answer (max 5 iterations)
 - **Conversation Memory**: Maintain context across interactions
+- **VRAM-Aware Selection**: Models show VRAM requirements
 
 ### 🔄 Workflow Execution
 
@@ -47,6 +50,14 @@ IOSANS puts you in control. No cloud subscriptions. No data leaks. No vendor loc
 - **Conditional Branching**: If/Else and Switch routing
 - **Error Handling**: Error triggers with retry logic
 - **Artifact Storage**: All outputs saved to IndexedDB
+- **Edge Status Feedback**: Pulse animation during active execution
+
+### 🎯 Agentic Patterns
+
+- **SemanticRouterNode**: Route input via keyword/LLM classification
+- **EvaluatorNode**: Schema/regex validation with self-correction loops
+- **MergeNode**: Wait-for-all or first-to-complete aggregation modes
+- **Dynamic Ports**: Nodes with variable input/output handles
 
 ### 🧠 Advanced Features
 
@@ -55,6 +66,7 @@ IOSANS puts you in control. No cloud subscriptions. No data leaks. No vendor loc
 - **Human-in-the-Loop**: Approval gates for critical actions
 - **Sub-Workflows**: Modular, reusable workflow components
 - **Python Executor**: Run Python via Pyodide in-browser
+- **Auto-Detect Types**: Intelligent MIME detection for Blob/JSON/audio/HTML
 
 ### 🛠️ Developer Tools
 
@@ -64,7 +76,7 @@ IOSANS puts you in control. No cloud subscriptions. No data leaks. No vendor loc
 - **GPU Hardware Detection**: WebGPU tier badges on AI nodes
 - **Execution Analytics (Shift+A)**: Performance metrics and slowest nodes
 - **Ghost Data Debugging**: Hover edges to see last payload snapshot
-- **Monaco Editor**: Syntax highlighting for code nodes
+- **Monaco Editor**: CDN-loaded syntax highlighting for code nodes
 
 ---
 
@@ -141,6 +153,7 @@ iosans/
 │   │   ├── validation.js     # Connection validation rules
 │   │   ├── expressions.js    # Template expression engine
 │   │   ├── artifactStorage.js    # IndexedDB artifact manager
+│   │   ├── autoDetectType.js     # Intelligent MIME type detection
 │   │   ├── stepExecutor.js       # Run Step debugging utility
 │   │   ├── cdnLoader.js          # CDN library loader
 │   │   └── hardwareDetection.js  # WebGPU/VRAM detection
@@ -206,36 +219,38 @@ npm run preview
 
 ### Actions (6 nodes)
 
-| Node              | Icon | Description                       |
-| ----------------- | ---- | --------------------------------- |
-| **Output**        | 📤   | Display/save workflow results     |
-| **HTTP Request**  | 🌐   | External API calls                |
-| **Code Executor** | 💻   | JavaScript code execution         |
-| **Set Variable**  | 📝   | Data transformation               |
-| **File System**   | 📁   | Local file read/write             |
-| **Local Storage** | 💾   | IndexedDB/localStorage operations |
+| Node              | Icon | Description                                       |
+| ----------------- | ---- | ------------------------------------------------- |
+| **Output**        | 📤   | Display/save workflow results (auto-detect types) |
+| **HTTP Request**  | 🌐   | External API calls                                |
+| **Code Executor** | 💻   | JavaScript with Monaco editor                     |
+| **Set Variable**  | 📝   | Data transformation                               |
+| **File System**   | 📁   | Local file read/write                             |
+| **Local Storage** | 💾   | IndexedDB/localStorage operations                 |
 
-### Logic (5 nodes)
+### Logic (7 nodes)
 
-| Node        | Icon | Description                        |
-| ----------- | ---- | ---------------------------------- |
-| **If/Else** | 🔀   | Conditional branching              |
-| **Loop**    | 🔄   | Iteration control (count or array) |
-| **Switch**  | 🔃   | Multi-path routing                 |
-| **Merge**   | 🔗   | Combine execution paths            |
-| **Group**   | 📦   | Collapsible container for nodes    |
+| Node               | Icon | Description                                   |
+| ------------------ | ---- | --------------------------------------------- |
+| **If/Else**        | 🔀   | Conditional branching                         |
+| **Loop**           | 🔄   | Iteration control (count or array)            |
+| **Switch**         | 🔃   | Multi-path routing                            |
+| **Merge**          | 🔗   | Wait-for-all or first-to-complete aggregation |
+| **Group**          | 📦   | Collapsible container for nodes               |
+| **SemanticRouter** | 🧭   | AI-powered intent classification              |
+| **Evaluator**      | 🔍   | Schema/regex validation with retry            |
 
 ### AI (7 nodes)
 
-| Node                  | Icon | Description                  |
-| --------------------- | ---- | ---------------------------- |
-| **AI Agent**          | 🤖   | WebLLM text generation       |
-| **Vector Memory**     | 🧠   | Semantic storage & retrieval |
-| **Wait for Approval** | ✋   | Human-in-the-loop gates      |
-| **Sub-Workflow**      | 🔀   | Execute nested workflows     |
-| **Text to Speech**    | 🔊   | Audio synthesis              |
-| **Image Generation**  | 🎨   | AI image creation            |
-| **Python Executor**   | 🐍   | Run Python via Pyodide       |
+| Node                  | Icon | Description                   |
+| --------------------- | ---- | ----------------------------- |
+| **AI Agent**          | 🤖   | WebLLM with JSON tool calling |
+| **Vector Memory**     | 🧠   | Semantic storage & retrieval  |
+| **Wait for Approval** | ✋   | Human-in-the-loop gates       |
+| **Sub-Workflow**      | 🔀   | Execute nested workflows      |
+| **Text to Speech**    | 🔊   | Audio synthesis               |
+| **Image Generation**  | 🎨   | AI image creation             |
+| **Python Executor**   | 🐍   | Run Python via Pyodide        |
 
 ---
 
