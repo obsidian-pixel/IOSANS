@@ -4,6 +4,7 @@
  */
 import { memo, useState, useRef, useMemo, useCallback } from "react";
 import { BaseEdge, EdgeLabelRenderer } from "@xyflow/react";
+import { useShallow } from "zustand/react/shallow";
 import useWorkflowStore from "../../store/workflowStore";
 import useExecutionStore from "../../store/executionStore";
 import { getSmartPath } from "../../utils/smartRouting";
@@ -33,11 +34,11 @@ function AnimatedEdge({
 
   // Get execution state for edge status
   const { currentNodeId, edgeSnapshots, isRunning } = useExecutionStore(
-    (state) => ({
+    useShallow((state) => ({
       currentNodeId: state.currentNodeId,
       edgeSnapshots: state.edgeSnapshots,
       isRunning: state.isRunning,
-    })
+    }))
   );
 
   // Check if source node is currently running (data is flowing)
