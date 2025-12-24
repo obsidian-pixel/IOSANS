@@ -1,0 +1,29 @@
+/* ============================================
+   App Layout Styles
+   ============================================ */
+
+.app {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-primary);
+  overflow: hidden;
+}
+
+.app-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* Ensure React Flow takes full space */
+.react-flow {
+  width: 100%;
+  height: 100%;
+}
+
+/* React Flow node selection */
+.react-flow__node.selected {
+  z-index: 10 !important;
+}
