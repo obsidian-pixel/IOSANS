@@ -1,0 +1,117 @@
+/* ============================================
+   Toast Notification Styles
+   ============================================ */
+
+.toast-container {
+  position: fixed;
+  bottom: var(--spacing-lg);
+  right: var(--spacing-lg);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: var(--spacing-sm);
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  min-width: 280px;
+  max-width: 400px;
+  padding: var(--spacing-md);
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  pointer-events: auto;
+  animation: toastSlideIn 0.3s ease-out;
+}
+
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.toast-icon {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.toast-success .toast-icon {
+  background-color: rgba(0, 200, 83, 0.2);
+  color: var(--color-success);
+}
+
+.toast-error .toast-icon {
+  background-color: rgba(255, 82, 82, 0.2);
+  color: var(--color-error);
+}
+
+.toast-warning .toast-icon {
+  background-color: rgba(255, 171, 0, 0.2);
+  color: var(--color-warning);
+}
+
+.toast-info .toast-icon {
+  background-color: rgba(41, 121, 255, 0.2);
+  color: var(--color-action);
+}
+
+.toast-message {
+  flex: 1;
+  line-height: 1.4;
+}
+
+.toast-close {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.toast-close:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* Border accents by type */
+.toast-success {
+  border-left: 3px solid var(--color-success);
+}
+
+.toast-error {
+  border-left: 3px solid var(--color-error);
+}
+
+.toast-warning {
+  border-left: 3px solid var(--color-warning);
+}
+
+.toast-info {
+  border-left: 3px solid var(--color-action);
+}

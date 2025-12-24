@@ -1,0 +1,137 @@
+.tour-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none; /* Let clicks pass through if needed, but we block mostly */
+  z-index: 99999;
+}
+
+.tour-spotlight {
+  position: absolute;
+  border-radius: 8px;
+  box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.75), 0 0 20px rgba(0, 0, 0, 0.5); /* Big shadow technique */
+  transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+  pointer-events: all; /* Block interactions with background */
+  border: 2px solid var(--color-action);
+  animation: pulse-border 2s infinite;
+}
+
+@keyframes pulse-border {
+  0% {
+    box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.75),
+      0 0 0 0 rgba(41, 121, 255, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.75),
+      0 0 0 10px rgba(41, 121, 255, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.75), 0 0 0 0 rgba(41, 121, 255, 0);
+  }
+}
+
+.tour-popover {
+  position: fixed;
+  width: 400px;
+  max-width: 90vw;
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  pointer-events: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tour-popover h3 {
+  margin: 0;
+  font-size: 16px;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tour-popover h3::before {
+  content: "💡";
+  font-size: 18px;
+}
+
+.tour-popover p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.tour-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.tour-nav-buttons {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.tour-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.tour-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--bg-hover);
+  transition: all 0.3s;
+}
+
+.tour-dot.active {
+  background: var(--color-action);
+  transform: scale(1.2);
+}
+
+.btn-prev,
+.btn-next {
+  background: var(--color-action);
+  color: white;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-prev:hover,
+.btn-next:hover {
+  background: var(--color-action-light);
+  transform: translateY(-1px);
+}
+
+.btn-prev:disabled {
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-skip {
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  cursor: pointer;
+}
+
+.btn-skip:hover {
+  color: var(--text-secondary);
+}

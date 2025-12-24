@@ -1,0 +1,280 @@
+/**
+ * AnimatedEdge Styles - Premium Design
+ */
+
+/* ============================================
+   Animated Edge Path
+   ============================================ */
+
+.animated-edge {
+  stroke: var(--color-action, #3b82f6);
+  stroke-dasharray: 5 5;
+  animation: flowAnimation 1s linear infinite;
+  transition: stroke 0.2s, stroke-width 0.2s;
+}
+
+.animated-edge.hovered {
+  stroke: #60a5fa;
+  filter: drop-shadow(0 0 6px rgba(96, 165, 250, 0.4));
+}
+
+@keyframes flowAnimation {
+  from {
+    stroke-dashoffset: 24;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Edge type colors */
+.animated-edge.edge-model {
+  stroke: #8b5cf6;
+}
+
+.animated-edge.edge-memory {
+  stroke: #10b981;
+}
+
+.animated-edge.edge-tool {
+  stroke: #f59e0b;
+}
+
+/* Flow animation overlay */
+.edge-flow-animation {
+  stroke: rgba(255, 255, 255, 0.3);
+  stroke-dasharray: 4 12;
+  animation: flowAnimation 0.8s linear infinite;
+  pointer-events: none;
+}
+
+/* Hover area (invisible but clickable) */
+.edge-hover-area {
+  cursor: pointer;
+}
+
+/* ============================================
+   Edge Action Buttons - Premium Design
+   ============================================ */
+
+.edge-action-container {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+}
+
+.edge-action-container.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.edge-action-buttons {
+  display: flex;
+  gap: 6px;
+  background: linear-gradient(
+    145deg,
+    rgba(25, 25, 35, 0.95),
+    rgba(15, 15, 22, 0.98)
+  );
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  z-index: 1000;
+  animation: buttonsFadeIn 0.15s ease;
+}
+
+@keyframes buttonsFadeIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.edge-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+/* Delete Button */
+.edge-btn-delete {
+  background: linear-gradient(
+    135deg,
+    rgba(239, 68, 68, 0.2),
+    rgba(239, 68, 68, 0.1)
+  );
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+
+.edge-btn-delete:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(239, 68, 68, 0.4),
+    rgba(239, 68, 68, 0.25)
+  );
+  border-color: rgba(239, 68, 68, 0.6);
+  color: #fff;
+  transform: scale(1.1);
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.4);
+}
+
+.edge-btn-delete:active {
+  transform: scale(0.95);
+}
+
+/* Add Node Button */
+.edge-btn-add {
+  background: linear-gradient(
+    135deg,
+    rgba(34, 197, 94, 0.2),
+    rgba(34, 197, 94, 0.1)
+  );
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: #86efac;
+}
+
+.edge-btn-add:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(34, 197, 94, 0.4),
+    rgba(34, 197, 94, 0.25)
+  );
+  border-color: rgba(34, 197, 94, 0.6);
+  color: #fff;
+  transform: scale(1.1);
+  box-shadow: 0 0 16px rgba(34, 197, 94, 0.4);
+}
+
+.edge-btn-add:active {
+  transform: scale(0.95);
+}
+
+/* Tooltip for buttons */
+.edge-btn::after {
+  content: attr(title);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+  border-radius: 6px;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.15s ease;
+  margin-bottom: 6px;
+  pointer-events: none;
+}
+
+.edge-btn:hover::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* ============================================
+   Ghost Data Tooltip
+   ============================================ */
+
+.ghost-data-tooltip {
+  background: linear-gradient(
+    145deg,
+    rgba(15, 15, 22, 0.98),
+    rgba(10, 10, 16, 0.98)
+  );
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  border-radius: 14px;
+  padding: 0;
+  min-width: 260px;
+  max-width: 380px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(99, 102, 241, 0.15) inset;
+  z-index: 1001;
+  overflow: hidden;
+  animation: ghostSlideIn 0.2s ease;
+}
+
+@keyframes ghostSlideIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -130%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -120%);
+  }
+}
+
+.ghost-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: linear-gradient(
+    135deg,
+    rgba(99, 102, 241, 0.2),
+    rgba(99, 102, 241, 0.08)
+  );
+  border-bottom: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.ghost-icon {
+  font-size: 18px;
+}
+
+.ghost-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  flex: 1;
+}
+
+.ghost-time {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.45);
+  font-weight: 500;
+}
+
+.ghost-preview {
+  margin: 0;
+  padding: 12px 14px;
+  font-family: var(--font-mono, "JetBrains Mono", monospace);
+  font-size: 11px;
+  line-height: 1.5;
+  color: #a5f3fc;
+  background: rgba(0, 0, 0, 0.25);
+  max-height: 220px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Has data indicator on edge */
+.animated-edge.has-data {
+  filter: drop-shadow(0 0 4px rgba(99, 102, 241, 0.35));
+}
+
+.animated-edge.has-data.hovered {
+  filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.5));
+}

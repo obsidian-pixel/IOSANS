@@ -1,0 +1,62 @@
+.ai-controls-panel {
+  position: absolute;
+  bottom: 10px;
+  right: calc(50% + 100px);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: 10;
+  height: 36px;
+  box-sizing: border-box;
+}
+
+.ai-btn {
+  background: transparent;
+  border: none;
+  font-size: 0.9rem;
+  padding: 0 6px;
+  cursor: pointer;
+  border-radius: 4px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 26px;
+  transition: all 0.2s;
+}
+
+.ai-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.ai-btn.active {
+  color: var(--color-action);
+  background: rgba(100, 108, 255, 0.1);
+}
+
+.overseer-btn {
+  gap: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0 8px;
+  background: rgba(100, 108, 255, 0.1);
+  color: var(--color-action);
+}
+
+.overseer-btn:hover {
+  background: var(--color-action);
+  color: white;
+}
+
+.divider {
+  width: 1px;
+  height: 16px;
+  background: var(--border-color);
+  margin: 0 2px;
+}

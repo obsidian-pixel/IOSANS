@@ -1,0 +1,110 @@
+.execution-controls-panel {
+  position: absolute;
+  bottom: 10px;
+  left: calc(50% + 100px);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  height: 36px;
+  box-sizing: border-box;
+  background-color: #1a1a20;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+  color: #fff;
+  transition: all 0.2s ease;
+}
+
+.execution-controls-panel:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+.exec-btn-group {
+  display: flex;
+  gap: 4px;
+}
+
+.exec-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 500;
+  padding: 4px 6px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.exec-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.exec-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Specific Colors */
+.btn-run {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+  border-color: rgba(34, 197, 94, 0.3);
+}
+.btn-run:hover {
+  background: rgba(34, 197, 94, 0.25);
+  border-color: rgba(34, 197, 94, 0.5);
+  box-shadow: 0 0 10px rgba(74, 222, 128, 0.1);
+}
+
+.btn-stop {
+  color: #ef4444;
+}
+.btn-stop:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.btn-pause {
+  color: #facc15;
+}
+
+.btn-resume {
+  color: #4ade80;
+}
+
+.btn-step {
+  color: #60a5fa;
+}
+
+.btn-toggle-debug {
+  font-size: 0.65rem;
+  color: #94a3b8;
+  opacity: 0.8;
+}
+
+.btn-toggle-debug:hover {
+  opacity: 1;
+}
+
+.btn-toggle-debug.active {
+  color: #a78bfa;
+  background: rgba(167, 139, 250, 0.1);
+  border-color: rgba(167, 139, 250, 0.3);
+  opacity: 1;
+}
+
+.separator {
+  width: 1px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 0 2px;
+}

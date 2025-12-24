@@ -1,0 +1,285 @@
+/* ============================================
+   WorkflowEditor Styles
+   ============================================ */
+
+.workflow-editor {
+  flex: 1;
+  height: 100%;
+  position: relative;
+  background-color: var(--bg-canvas);
+}
+
+/* React Flow overrides */
+.workflow-editor .react-flow {
+  background-color: var(--bg-canvas);
+}
+
+.workflow-editor .react-flow__node {
+  cursor: grab;
+}
+
+.workflow-editor .react-flow__node:active {
+  cursor: grabbing;
+}
+
+/* Remove default backgrounds from custom nodes */
+.workflow-editor .react-flow__node-output,
+.workflow-editor .react-flow__node-manualTrigger,
+.workflow-editor .react-flow__node-aiAgent,
+.workflow-editor .react-flow__node-textToSpeech,
+.workflow-editor [class*="react-flow__node-"] {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.workflow-editor .react-flow__edge-path {
+  stroke: var(--edge-color);
+  stroke-width: 2;
+}
+
+.workflow-editor .react-flow__edge.selected .react-flow__edge-path {
+  stroke: var(--edge-selected);
+  stroke-width: 3;
+}
+
+.workflow-editor .react-flow__edge:hover .react-flow__edge-path {
+  stroke: var(--edge-active);
+}
+
+.workflow-editor .react-flow__connection-line {
+  stroke: var(--color-action);
+  stroke-width: 2;
+  stroke-dasharray: 5;
+  animation: flow 0.5s linear infinite;
+}
+
+/* Fix connection handles jumping on hover */
+.workflow-editor .react-flow__handle {
+  width: 10px;
+  height: 10px;
+  background-color: var(--text-muted);
+  border: 2px solid var(--bg-canvas);
+  transition: background-color var(--transition-fast);
+  /* CRITICAL: Prevent transform changes on hover */
+  transform: none !important;
+}
+
+.workflow-editor .react-flow__handle:hover {
+  background-color: var(--color-accent);
+  /* CRITICAL: Ensure size doesn't change layout */
+  transform: none !important;
+}
+
+.workflow-editor .react-flow__handle-connecting {
+  background-color: var(--color-action);
+}
+
+/* Control buttons */
+.workflow-controls {
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+
+.workflow-controls button {
+  background-color: transparent;
+  border: none;
+  color: var(--text-secondary);
+  padding: var(--spacing-sm);
+}
+
+.workflow-controls button:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.workflow-controls button svg {
+  fill: currentColor;
+}
+
+/* Collapsible MiniMap Container */
+.minimap-container {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+/* Toggle button always in top-right corner */
+.minimap-toggle {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 16px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  z-index: 5;
+  box-shadow: var(--shadow-sm);
+}
+
+.minimap-toggle:hover {
+  background-color: var(--bg-hover);
+  transform: scale(1.05);
+  box-shadow: var(--shadow-md);
+}
+
+/* Minimap appears directly below the toggle button */
+.workflow-minimap {
+  background-color: var(--bg-panel) !important;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  cursor: grab;
+  /* Override React Flow default positioning */
+  position: relative !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: auto !important;
+  left: auto !important;
+  margin-top: -26px;
+  z-index: 1;
+}
+
+/* Override the internal minimap SVG positioning */
+.workflow-minimap .react-flow__minimap-svg {
+  display: block;
+}
+
+.workflow-minimap:active {
+  cursor: grabbing;
+}
+
+.workflow-minimap svg {
+  border-radius: var(--radius-md);
+}
+
+/* Empty state */
+.workflow-empty-state {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.workflow-empty-state .empty-icon {
+  font-size: 48px;
+  margin-bottom: var(--spacing-md);
+  opacity: 0.5;
+}
+
+.workflow-empty-state h3 {
+  font-size: var(--font-size-xl);
+  margin-bottom: var(--spacing-sm);
+  color: var(--text-secondary);
+}
+
+.workflow-empty-state p {
+  color: var(--text-muted);
+  font-size: var(--font-size-md);
+}
+
+/* Drop zone highlight */
+.workflow-editor.drag-over {
+  outline: 2px dashed var(--color-action);
+  outline-offset: -4px;
+}
+
+/* Selection box */
+.workflow-editor .react-flow__selection {
+  background: rgba(41, 121, 255, 0.1);
+  border: 1px dashed var(--color-action);
+}
+
+/* Custom View Controls Panel */
+.view-controls-panel {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: 0 var(--spacing-xs);
+  height: 36px; /* Reduced height */
+  box-sizing: border-box;
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: 10;
+}
+
+.zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-right: var(--spacing-xs);
+  border-right: 1px solid var(--border-color);
+}
+
+.zoom-btn {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.zoom-btn:hover {
+  background-color: var(--bg-hover);
+  border-color: var(--color-action);
+}
+
+.zoom-level {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+  min-width: 45px;
+  text-align: center;
+}
+
+.view-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.view-btn:hover {
+  background-color: var(--bg-hover);
+  border-color: var(--border-color);
+}
+
+.view-btn.active {
+  background-color: var(--color-action);
+  color: white;
+  border-color: var(--color-action);
+}

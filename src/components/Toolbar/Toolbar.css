@@ -1,0 +1,321 @@
+/* ============================================
+   Toolbar Styles
+   ============================================ */
+
+.toolbar {
+  height: 56px;
+  background-color: var(--bg-panel);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--spacing-lg);
+  z-index: var(--z-toolbar);
+}
+
+.toolbar-left,
+.toolbar-center,
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.toolbar-left {
+  flex: 1;
+}
+
+.toolbar-center {
+  flex: 2; /* Give more space to center */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.toolbar-right {
+  flex: 1;
+  justify-content: flex-end;
+}
+
+/* Workflow name input */
+.workflow-name-input {
+  width: 300px;
+  max-width: 100%;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background-color: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.workflow-name-input:hover {
+  background-color: var(--bg-hover);
+}
+
+.workflow-name-input:focus {
+  outline: none;
+  background-color: var(--bg-secondary);
+  border-color: var(--border-color);
+  box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb), 0.1);
+}
+
+.workflow-name-input::placeholder {
+  color: var(--text-muted);
+  font-weight: 400;
+  opacity: 0.5;
+}
+
+.toolbar .btn-danger {
+  color: var(--text-muted);
+  transition: all 0.2s ease;
+}
+
+.toolbar .btn-danger:hover:not(:disabled) {
+  color: var(--color-error);
+  background-color: rgba(255, 69, 58, 0.1);
+}
+
+/* Tutorial & Docs Buttons */
+.btn-nav {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.btn-nav:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-hover);
+}
+
+/* Pause/Resume buttons */
+.btn-pause {
+  background-color: var(--color-warning);
+  color: var(--text-inverse);
+}
+
+.btn-pause:hover {
+  background-color: #ffcc00;
+}
+
+.btn-resume {
+  background-color: var(--color-success);
+  color: var(--text-inverse);
+}
+
+.btn-resume:hover {
+  background-color: #00ff7f;
+}
+
+/* Step button for debug mode */
+.btn-step {
+  background-color: var(--color-action);
+  color: var(--text-primary);
+}
+
+.btn-step:hover {
+  background-color: #4d94ff;
+}
+
+/* Debug run button */
+.btn-debug-run {
+  background-color: #ff8f00;
+  color: var(--text-inverse);
+}
+
+.btn-debug-run:hover:not(:disabled) {
+  background-color: #ffa726;
+}
+
+.btn-debug-run:disabled {
+  background-color: var(--bg-active);
+  color: var(--text-muted);
+}
+
+/* Phase 7 Feature Buttons */
+.btn-feature {
+  padding: var(--spacing-sm);
+  background: transparent;
+  border-radius: var(--radius-sm);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.btn-feature:hover {
+  background: var(--bg-hover);
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--border-color);
+  margin: 0 var(--spacing-xs);
+}
+
+.btn-feature {
+  padding: var(--spacing-sm);
+  font-size: var(--font-size-md);
+}
+
+.btn-stop-audio {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: rgba(255, 69, 58, 0.1);
+  color: #ff453a;
+  border: 1px solid #ff453a;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  animation: pulse-red 2s infinite;
+  margin-right: 12px;
+}
+
+.btn-stop-audio:hover {
+  background-color: #ff453a;
+  color: white;
+}
+
+@keyframes pulse-red {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 69, 58, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(255, 69, 58, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 69, 58, 0);
+  }
+}
+
+/* ============================================
+   Modal Styles
+   ============================================ */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.modal-content {
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  width: 600px;
+  max-width: 90vw;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+.modal-header {
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: var(--bg-secondary);
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.btn-close {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s;
+}
+
+.btn-close:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+.modal-body {
+  padding: var(--spacing-lg);
+  overflow-y: auto;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.modal-body h3 {
+  color: var(--text-primary);
+  margin-top: var(--spacing-lg);
+  margin-bottom: var(--spacing-sm);
+  font-size: var(--font-size-md);
+}
+
+.modal-body h3:first-child {
+  margin-top: 0;
+}
+
+.modal-body p {
+  margin-bottom: var(--spacing-md);
+}
+
+.modal-body ul,
+.modal-body ol {
+  padding-left: var(--spacing-lg);
+  margin-bottom: var(--spacing-md);
+}
+
+.modal-body li {
+  margin-bottom: var(--spacing-xs);
+}
+
+.modal-body strong {
+  color: var(--color-action);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}

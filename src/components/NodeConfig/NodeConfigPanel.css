@@ -1,0 +1,605 @@
+/* ============================================
+   NodeConfigPanel Styles
+   ============================================ */
+
+.node-config-panel {
+  position: fixed;
+  top: 25%;
+  left: 50%;
+  transform: translate(-50%, 0);
+  width: 400px;
+  max-height: 70vh;
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  z-index: var(--z-panel);
+  animation: fadeIn var(--transition-normal);
+  border-top: 3px solid var(--node-color, var(--color-action));
+  transition: box-shadow var(--transition-fast);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.node-config-panel.dragging {
+  box-shadow: var(--shadow-lg), 0 0 0 2px var(--node-color, var(--color-action));
+  cursor: grabbing;
+  user-select: none;
+}
+
+.node-config-panel.resizing {
+  cursor: ew-resize;
+  user-select: none;
+}
+
+/* Resize handle on left edge */
+.resize-handle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: ew-resize;
+  background: transparent;
+  z-index: 10;
+  transition: background var(--transition-fast);
+}
+
+.resize-handle:hover {
+  background: var(--color-action);
+}
+
+.node-config-panel.resizing .resize-handle {
+  background: var(--color-action);
+}
+
+/* Drag handle */
+.drag-handle {
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: grab;
+  padding: 0 4px;
+  letter-spacing: -2px;
+  user-select: none;
+}
+
+.node-config-panel.dragging .drag-handle {
+  cursor: grabbing;
+}
+
+.config-header.draggable {
+  cursor: grab;
+}
+
+.node-config-panel.dragging .config-header.draggable {
+  cursor: grabbing;
+}
+
+.config-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-md);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.config-title {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex: 1;
+  min-width: 0;
+}
+
+.config-title .node-icon {
+  font-size: 18px;
+}
+
+.node-label-input {
+  flex: 1;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.node-label-input:hover {
+  background-color: var(--bg-hover);
+}
+
+.node-label-input:focus {
+  outline: none;
+  border-color: var(--node-color, var(--color-action));
+  background-color: var(--bg-secondary);
+}
+
+.config-actions {
+  display: flex;
+  gap: var(--spacing-xs);
+  position: relative;
+  z-index: 10;
+}
+
+.config-actions .btn-icon {
+  width: 28px;
+  height: 28px;
+  font-size: 14px;
+  background: transparent;
+  cursor: pointer;
+  border: none;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+}
+
+.config-actions .btn-icon:hover {
+  background-color: var(--bg-hover);
+}
+
+.config-actions .btn-delete:hover {
+  background-color: rgba(255, 82, 82, 0.2);
+  color: var(--color-error);
+}
+
+.config-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-md);
+}
+
+.config-empty {
+  text-align: center;
+  padding: var(--spacing-lg);
+  color: var(--text-muted);
+}
+
+.config-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-top: 1px solid var(--border-color);
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
+.node-type-label {
+  color: var(--node-color, var(--color-action));
+}
+
+/* Config form elements */
+.config-field {
+  margin-bottom: var(--spacing-md);
+}
+
+.config-field label {
+  display: block;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.config-field input,
+.config-field select,
+.config-field textarea {
+  width: 100%;
+  padding: var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+}
+
+.config-field input:focus,
+.config-field select:focus,
+.config-field textarea:focus {
+  outline: none;
+  border-color: var(--node-color, var(--color-action));
+}
+
+.config-field textarea {
+  min-height: 100px;
+  font-family: var(--font-mono);
+  resize: vertical;
+}
+
+.config-field .hint {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  margin-top: var(--spacing-xs);
+}
+
+/* Row layout for fields */
+.config-row {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.config-row .config-field {
+  flex: 1;
+}
+
+/* Section divider */
+.config-section {
+  margin-bottom: var(--spacing-lg);
+}
+
+.config-section-title {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-bottom: var(--spacing-sm);
+  padding-bottom: var(--spacing-xs);
+  border-bottom: 1px solid var(--border-color);
+}
+
+/* Toggle switch */
+.config-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-sm) 0;
+}
+
+.config-toggle label {
+  margin-bottom: 0;
+}
+
+.toggle-switch {
+  width: 40px;
+  height: 22px;
+  background-color: var(--bg-active);
+  border-radius: 11px;
+  position: relative;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.toggle-switch.active {
+  background-color: var(--color-success);
+}
+
+.toggle-switch::after {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  background-color: var(--text-primary);
+  border-radius: 50%;
+  top: 2px;
+  left: 2px;
+  transition: transform var(--transition-fast);
+}
+
+.toggle-switch.active::after {
+  transform: translateX(18px);
+}
+
+/* Route row styling */
+.route-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+}
+
+.route-row .route-value {
+  flex: 1;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+}
+
+.route-row .route-output {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.route-row .btn-small {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  font-size: 12px;
+  background: transparent;
+}
+
+.route-row .btn-small:hover {
+  background-color: rgba(255, 82, 82, 0.2);
+  color: var(--color-error);
+}
+
+.btn-add-route {
+  width: 100%;
+  padding: var(--spacing-sm);
+  margin-top: var(--spacing-xs);
+  background-color: var(--bg-secondary);
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-add-route:hover {
+  border-color: var(--color-action);
+  color: var(--color-action);
+  background-color: rgba(41, 121, 255, 0.1);
+}
+
+/* Output info styling */
+.output-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.output-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.output-badge {
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.output-badge.true {
+  background-color: rgba(0, 200, 83, 0.2);
+  color: var(--color-success);
+}
+
+.output-badge.false {
+  background-color: rgba(255, 82, 82, 0.2);
+  color: var(--color-error);
+}
+
+.output-badge.loop {
+  background-color: rgba(255, 171, 0, 0.2);
+  color: var(--color-warning);
+}
+
+.output-badge.done {
+  background-color: rgba(41, 121, 255, 0.2);
+  color: var(--color-action);
+}
+
+/* Hint list styling */
+.hint-list {
+  margin: var(--spacing-xs) 0;
+  padding-left: var(--spacing-md);
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
+.hint-list li {
+  margin-bottom: 2px;
+}
+
+.hint-list code {
+  background-color: var(--bg-secondary);
+  padding: 1px 4px;
+  border-radius: 2px;
+  font-size: 10px;
+}
+
+/* Code help styling */
+.code-help {
+  margin-top: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+}
+
+/* Tools list */
+.tools-list {
+  margin: var(--spacing-xs) 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.tools-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background-color: var(--bg-active);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--spacing-xs);
+}
+
+.tools-list .tool-icon {
+  font-size: 12px;
+}
+
+.tools-list .tool-name {
+  flex: 1;
+  font-weight: 500;
+}
+
+.tools-list .tool-type {
+  font-size: 10px;
+  padding: 2px 6px;
+  background-color: var(--bg-primary);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.tools-info {
+  padding: var(--spacing-sm);
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+}
+
+/* Toggle label */
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+}
+
+.toggle-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-action);
+}
+
+/* ============================================
+   CDN Library Picker
+   ============================================ */
+
+.config-section-title .add-cdn-btn {
+  margin-left: auto;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(99, 102, 241, 0.2);
+  color: #a5b4fc;
+  font-size: 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.add-cdn-btn:hover {
+  background: rgba(99, 102, 241, 0.4);
+  color: #fff;
+}
+
+.cdn-picker {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-xs);
+  margin-top: var(--spacing-sm);
+  animation: fadeIn 0.15s ease;
+}
+
+.cdn-option {
+  width: 100%;
+  padding: var(--spacing-sm);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  transition: background 0.1s;
+}
+
+.cdn-option:hover {
+  background: rgba(99, 102, 241, 0.15);
+}
+
+.cdn-option strong {
+  font-size: var(--font-size-sm);
+}
+
+.cdn-global {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.cdn-custom {
+  padding: var(--spacing-xs);
+  border-top: 1px solid var(--border-color);
+  margin-top: var(--spacing-xs);
+}
+
+.cdn-custom input {
+  width: 100%;
+  padding: var(--spacing-xs);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+}
+
+.cdn-custom input:focus {
+  outline: none;
+  border-color: var(--color-action);
+}
+
+.cdn-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-sm);
+}
+
+.cdn-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: 4px 8px;
+  background: rgba(99, 102, 241, 0.15);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  color: #a5b4fc;
+}
+
+.cdn-name {
+  font-weight: 500;
+}
+
+.cdn-remove {
+  width: 14px;
+  height: 14px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cdn-remove:hover {
+  background: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
