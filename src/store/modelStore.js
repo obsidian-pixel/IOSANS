@@ -21,169 +21,213 @@ const useModelStore = create(
       downloadQueue: [], // Queue of models to download
       isDownloading: false,
 
-      // Available models - organized by size and capability
+      // Available models - Capability-Based Registry (Sovereign Schema)
       // IMPORTANT: These IDs must match WebLLM's prebuiltAppConfig exactly
       availableModels: [
-        // === Recommended (Small & Fast) ===
+        // === MULTIMODAL (Vision) ===
+        {
+          id: "Llama-3.2-11B-Vision-Instruct-q4f16_1-MLC",
+          name: "Llama 3.2 Vision (11B)",
+          type: "multimodal",
+          capabilities: ["vision", "reasoning", "tool_use"],
+          vram: 8.5,
+          size: "~6.5GB",
+          description: "Gold standard for vision tasks and complex reasoning.",
+          tags: ["Vision", "High-Perf"],
+        },
+        {
+          id: "Llama-3.2-90B-Vision-Instruct-q4f16_1-MLC",
+          name: "Llama 3.2 Vision (90B)",
+          type: "multimodal",
+          capabilities: ["vision", "reasoning", "tool_use"],
+          vram: 48,
+          size: "~50GB",
+          description: "Largest vision model - requires high-end GPU.",
+          tags: ["Vision", "Ultra"],
+        },
+        {
+          id: "Phi-3.5-vision-instruct-q4f16_1-MLC",
+          name: "Phi-3.5 Vision",
+          type: "multimodal",
+          capabilities: ["vision", "reasoning"],
+          vram: 4.5,
+          size: "~3GB",
+          description: "Compact vision model for lower VRAM systems.",
+          tags: ["Vision", "Fast"],
+        },
+
+        // === REASONING (General Text) ===
         {
           id: "gemma-2-2b-it-q4f16_1-MLC",
           name: "Gemma 2 2B",
+          type: "text",
+          capabilities: ["reasoning", "chat"],
+          vram: 2.0,
           size: "~1.4GB",
-          vramRequired: 2.0, // GB of VRAM required
-          description: "Google's fast, lightweight model (Recommended)",
-          category: "recommended",
-        },
-        {
-          id: "Qwen2.5-1.5B-Instruct-q4f16_1-MLC",
-          name: "Qwen 2.5 1.5B",
-          size: "~1GB",
-          vramRequired: 1.5,
-          description: "Alibaba's efficient small model",
-          category: "recommended",
-        },
-        {
-          id: "SmolLM2-1.7B-Instruct-q4f16_1-MLC",
-          name: "SmolLM2 1.7B",
-          size: "~1.1GB",
-          vramRequired: 1.8,
-          description: "HuggingFace's compact model",
-          category: "recommended",
-        },
-
-        // === Gemma 2 Models ===
-        {
-          id: "gemma-2-2b-it-q4f32_1-MLC",
-          name: "Gemma 2 2B (F32)",
-          size: "~2.5GB",
-          vramRequired: 3.0,
-          description: "Higher precision Gemma 2",
-          category: "gemma",
+          description: "Google's fast, lightweight model (Recommended).",
+          tags: ["Fast", "Recommended"],
         },
         {
           id: "gemma-2-9b-it-q4f16_1-MLC",
           name: "Gemma 2 9B",
+          type: "text",
+          capabilities: ["reasoning", "chat", "tool_use"],
+          vram: 8.0,
           size: "~6GB",
-          vramRequired: 8.0,
-          description: "Larger Gemma 2 with better reasoning",
-          category: "gemma",
+          description: "Larger Gemma 2 with better reasoning.",
+          tags: ["High-Perf"],
         },
         {
-          id: "gemma-2-2b-jpn-it-q4f16_1-MLC",
-          name: "Gemma 2 2B Japanese",
-          size: "~1.4GB",
-          vramRequired: 2.0,
-          description: "Japanese-optimized Gemma 2",
-          category: "gemma",
-        },
-
-        // === Qwen 3 Models ===
-        {
-          id: "Qwen3-0.6B-q4f16_1-MLC",
-          name: "Qwen 3 0.6B",
-          size: "~400MB",
-          vramRequired: 0.8,
-          description: "Ultra-light Qwen 3 - instant responses",
-          category: "qwen3",
-        },
-        {
-          id: "Qwen3-1.7B-q4f16_1-MLC",
-          name: "Qwen 3 1.7B",
-          size: "~1.1GB",
-          vramRequired: 1.8,
-          description: "Fast Qwen 3 with hybrid thinking",
-          category: "qwen3",
-        },
-        {
-          id: "Qwen3-4B-q4f16_1-MLC",
-          name: "Qwen 3 4B",
-          size: "~2.5GB",
-          vramRequired: 3.5,
-          description: "Balanced Qwen 3 for most tasks",
-          category: "qwen3",
-        },
-        {
-          id: "Qwen3-8B-q4f16_1-MLC",
-          name: "Qwen 3 8B",
-          size: "~5GB",
-          vramRequired: 6.5,
-          description: "Advanced Qwen 3 with deep reasoning",
-          category: "qwen3",
-        },
-
-        // === Qwen 2.5 Models ===
-        {
-          id: "Qwen2.5-0.5B-Instruct-q4f16_1-MLC",
-          name: "Qwen 2.5 0.5B",
-          size: "~350MB",
-          description: "Ultra-light Qwen for basic tasks",
-          category: "qwen",
+          id: "Qwen2.5-1.5B-Instruct-q4f16_1-MLC",
+          name: "Qwen 2.5 1.5B",
+          type: "text",
+          capabilities: ["reasoning", "chat"],
+          vram: 1.5,
+          size: "~1GB",
+          description: "Alibaba's efficient small model.",
+          tags: ["Fast", "Recommended"],
         },
         {
           id: "Qwen2.5-3B-Instruct-q4f16_1-MLC",
           name: "Qwen 2.5 3B",
+          type: "text",
+          capabilities: ["reasoning", "chat", "tool_use"],
+          vram: 2.5,
           size: "~2GB",
-          description: "Balanced Qwen with good reasoning",
-          category: "qwen",
+          description: "Balanced Qwen with good reasoning.",
+          tags: ["Balanced"],
         },
         {
           id: "Qwen2.5-7B-Instruct-q4f16_1-MLC",
           name: "Qwen 2.5 7B",
+          type: "text",
+          capabilities: ["reasoning", "chat", "tool_use"],
+          vram: 5.0,
           size: "~4.5GB",
-          description: "Powerful Qwen for complex tasks",
-          category: "qwen",
+          description: "Powerful Qwen for complex tasks.",
+          tags: ["High-Perf"],
         },
         {
-          id: "Qwen2.5-Coder-1.5B-Instruct-q4f16_1-MLC",
-          name: "Qwen 2.5 Coder 1.5B",
-          size: "~1GB",
-          description: "Optimized for code generation",
-          category: "qwen",
+          id: "Qwen3-0.6B-q4f16_1-MLC",
+          name: "Qwen 3 0.6B",
+          type: "text",
+          capabilities: ["reasoning", "chat"],
+          vram: 0.8,
+          size: "~400MB",
+          description: "Ultra-light Qwen 3 - instant responses.",
+          tags: ["Tiny", "Fast"],
         },
-
-        // === Medium Models ===
         {
-          id: "Phi-3.5-mini-instruct-q4f16_1-MLC",
-          name: "Phi-3.5 Mini",
-          size: "~2.4GB",
-          description: "Microsoft's balanced 3.8B model",
-          category: "medium",
+          id: "Qwen3-1.7B-q4f16_1-MLC",
+          name: "Qwen 3 1.7B",
+          type: "text",
+          capabilities: ["reasoning", "chat"],
+          vram: 1.8,
+          size: "~1.1GB",
+          description: "Fast Qwen 3 with hybrid thinking.",
+          tags: ["Fast"],
+        },
+        {
+          id: "Qwen3-4B-q4f16_1-MLC",
+          name: "Qwen 3 4B",
+          type: "text",
+          capabilities: ["reasoning", "chat", "tool_use"],
+          vram: 3.5,
+          size: "~2.5GB",
+          description: "Balanced Qwen 3 for most tasks.",
+          tags: ["Balanced"],
+        },
+        {
+          id: "Qwen3-8B-q4f16_1-MLC",
+          name: "Qwen 3 8B",
+          type: "text",
+          capabilities: ["reasoning", "chat", "tool_use"],
+          vram: 6.5,
+          size: "~5GB",
+          description: "Advanced Qwen 3 with deep reasoning.",
+          tags: ["High-Perf"],
         },
         {
           id: "Llama-3.2-3B-Instruct-q4f16_1-MLC",
           name: "Llama 3.2 3B",
+          type: "text",
+          capabilities: ["reasoning", "chat", "tool_use"],
+          vram: 2.5,
           size: "~2GB",
-          description: "Meta's capable small model",
-          category: "medium",
+          description: "Meta's capable small model.",
+          tags: ["Balanced"],
         },
         {
           id: "Llama-3.2-1B-Instruct-q4f16_1-MLC",
           name: "Llama 3.2 1B",
+          type: "text",
+          capabilities: ["reasoning", "chat"],
+          vram: 1.2,
           size: "~900MB",
-          description: "Meta's fast tiny model",
-          category: "medium",
+          description: "Meta's fast tiny model.",
+          tags: ["Tiny", "Fast"],
         },
         {
           id: "Mistral-7B-Instruct-v0.3-q4f16_1-MLC",
           name: "Mistral 7B v0.3",
+          type: "text",
+          capabilities: ["reasoning", "chat", "tool_use"],
+          vram: 5.0,
           size: "~4.5GB",
-          description: "Mistral AI's flagship model",
-          category: "medium",
+          description: "Mistral AI's flagship model.",
+          tags: ["High-Perf"],
         },
-
-        // === Tiny Models (Ultra-fast) ===
+        {
+          id: "Phi-3.5-mini-instruct-q4f16_1-MLC",
+          name: "Phi-3.5 Mini",
+          type: "text",
+          capabilities: ["reasoning", "chat"],
+          vram: 2.8,
+          size: "~2.4GB",
+          description: "Microsoft's balanced 3.8B model.",
+          tags: ["Balanced"],
+        },
+        {
+          id: "SmolLM2-1.7B-Instruct-q4f16_1-MLC",
+          name: "SmolLM2 1.7B",
+          type: "text",
+          capabilities: ["reasoning", "chat"],
+          vram: 1.8,
+          size: "~1.1GB",
+          description: "HuggingFace's compact model.",
+          tags: ["Fast", "Recommended"],
+        },
         {
           id: "SmolLM2-360M-Instruct-q4f16_1-MLC",
           name: "SmolLM2 360M",
+          type: "text",
+          capabilities: ["chat"],
+          vram: 0.5,
           size: "~250MB",
-          description: "Smallest practical model",
-          category: "tiny",
+          description: "Smallest practical model.",
+          tags: ["Tiny"],
+        },
+
+        // === CODING ===
+        {
+          id: "Qwen2.5-Coder-1.5B-Instruct-q4f16_1-MLC",
+          name: "Qwen 2.5 Coder 1.5B",
+          type: "coding",
+          capabilities: ["python", "javascript", "coding"],
+          vram: 1.5,
+          size: "~1GB",
+          description: "Optimized for code generation.",
+          tags: ["Coding", "Fast"],
         },
         {
-          id: "SmolLM2-135M-Instruct-q0f16-MLC",
-          name: "SmolLM2 135M",
-          size: "~150MB",
-          description: "Tiny model for simple tasks",
-          category: "tiny",
+          id: "Qwen2.5-Coder-7B-Instruct-q4f16_1-MLC",
+          name: "Qwen 2.5 Coder 7B",
+          type: "coding",
+          capabilities: ["python", "javascript", "coding", "tool_use"],
+          vram: 5.2,
+          size: "~4.5GB",
+          description: "Advanced coding assistant.",
+          tags: ["Coding", "High-Perf"],
         },
       ],
 
@@ -296,7 +340,7 @@ const useModelStore = create(
       getModelsForVRAM: (availableVRAMGB) => {
         const { availableModels } = get();
         return availableModels.filter(
-          (m) => (m.vramRequired || 1.0) <= availableVRAMGB
+          (m) => (m.vram || 1.0) <= availableVRAMGB
         );
       },
 
@@ -305,7 +349,7 @@ const useModelStore = create(
         const { availableModels } = get();
         const model = availableModels.find((m) => m.id === modelId);
         if (!model) return false;
-        return (model.vramRequired || 1.0) <= availableVRAMGB;
+        return (model.vram || 1.0) <= availableVRAMGB;
       },
 
       // Get VRAM status indicator
@@ -314,7 +358,7 @@ const useModelStore = create(
         const model = availableModels.find((m) => m.id === modelId);
         if (!model) return { status: "unknown", message: "Model not found" };
 
-        const required = model.vramRequired || 1.0;
+        const required = model.vram || 1.0;
         const ratio = detectedVRAMGB / required;
 
         if (ratio >= 1.5)
@@ -336,6 +380,41 @@ const useModelStore = create(
           color: "#ef4444",
           message: "Not enough VRAM",
         };
+      },
+
+      // === NEW: Capability-Based Filters ===
+
+      // Get models that have a specific capability
+      getModelsForCapability: (capability) => {
+        const { availableModels } = get();
+        return availableModels.filter((m) =>
+          m.capabilities?.includes(capability)
+        );
+      },
+
+      // Get models by type (text, coding, multimodal)
+      getModelsForType: (type) => {
+        const { availableModels } = get();
+        return availableModels.filter((m) => m.type === type);
+      },
+
+      // Get models with a specific tag
+      getModelsWithTag: (tag) => {
+        const { availableModels } = get();
+        return availableModels.filter((m) => m.tags?.includes(tag));
+      },
+
+      // Auto-Fit: Get best model for VRAM and capability
+      autoFitModel: (detectedVRAMGB, requiredCapability = "reasoning") => {
+        const { availableModels } = get();
+        const compatible = availableModels.filter(
+          (m) =>
+            (m.vram || 1.0) <= detectedVRAMGB &&
+            m.capabilities?.includes(requiredCapability)
+        );
+        // Sort by VRAM descending (best quality that fits)
+        compatible.sort((a, b) => (b.vram || 0) - (a.vram || 0));
+        return compatible[0] || null;
       },
     }),
     {

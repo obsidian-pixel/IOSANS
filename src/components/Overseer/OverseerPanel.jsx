@@ -291,16 +291,11 @@ export default function OverseerPanel({ isOpen, onClose }) {
     setIsLoading(true);
 
     try {
-      if (!isReady) {
-        throw new Error("Please load a model from the Model Manager first.");
-      }
+      // Service handles all errors (including model not loaded) and saves to session
       await overseerService.chat(userMsg);
     } catch (error) {
-      // Force error message into view if service didn't capture it in session
-      setMessages((prev) => [
-        ...prev,
-        { role: "system", content: `Error: ${error.message}` },
-      ]);
+      // This should rarely happen now since service catches internally
+      console.error("Unexpected Overseer error:", error);
     } finally {
       setIsLoading(false);
     }

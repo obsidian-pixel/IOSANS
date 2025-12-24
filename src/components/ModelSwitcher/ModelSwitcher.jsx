@@ -8,6 +8,7 @@ import "./ModelSwitcher.css";
 
 function ModelSwitcher({ isOpen, onClose }) {
   const [activeCategory, setActiveCategory] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const availableModels = useModelStore((state) => state.availableModels);
   const currentModel = useModelStore((state) => state.currentModelId);
@@ -15,21 +16,15 @@ function ModelSwitcher({ isOpen, onClose }) {
   const loadProgress = useModelStore((state) => state.loadProgress);
   const downloadedModels = useModelStore((state) => state.downloadedModels);
   const downloadProgress = useModelStore((state) => state.downloadProgress);
-  const setDownloadProgress = useModelStore(
-    (state) => state.setDownloadProgress
-  );
 
   const handleDownloadModel = (modelId) => {
-    // Mark as downloading and dispatch event to trigger WebLLM load
-    setDownloadProgress(modelId, 5, "downloading");
-
     // Dispatch event - App.jsx handles actual WebLLM loading/caching
+    // The progress will be set to 0 by the App.jsx handler when it starts
     window.dispatchEvent(
       new CustomEvent("downloadModel", {
         detail: { modelId },
       })
     );
-
     // Keep modal open so user can see progress bar
   };
 
@@ -110,21 +105,47 @@ function ModelSwitcher({ isOpen, onClose }) {
 
   const categories = [
     { id: "all", label: "All" },
-    { id: "recommended", label: "⭐ Recommended" },
     { id: "downloaded", label: "✅ Downloaded" },
-    { id: "gemma", label: "🔷 Gemma 3" },
-    { id: "qwen3", label: "🔶 Qwen 3" },
-    { id: "qwen", label: "Qwen 2.5" },
-    { id: "medium", label: "Medium" },
-    { id: "tiny", label: "Tiny" },
+    { id: "multimodal", label: "👁️ Vision" },
+    { id: "text", label: "💬 Reasoning" },
+    { id: "coding", label: "💻 Coding" },
+    { id: "recommended", label: "⭐ Recommended" },
+    { id: "tiny", label: "🐜 Tiny" },
   ];
 
   const filteredModels = availableModels.filter((model) => {
+    // Search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      const matchesName = model.name.toLowerCase().includes(query);
+      const matchesDesc = model.description?.toLowerCase().includes(query);
+      const matchesTags = model.tags?.some((t) =>
+        t.toLowerCase().includes(query)
+      );
+      if (!matchesName && !matchesDesc && !matchesTags) return false;
+    }
+
+    // Category filter
     if (activeCategory === "all") return true;
     if (activeCategory === "downloaded") {
       return downloadedModels.includes(model.id);
     }
-    return model.category === activeCategory;
+    // Type-based filtering
+    if (
+      activeCategory === "multimodal" ||
+      activeCategory === "text" ||
+      activeCategory === "coding"
+    ) {
+      return model.type === activeCategory;
+    }
+    // Tag-based filtering
+    if (activeCategory === "recommended") {
+      return model.tags?.includes("Recommended");
+    }
+    if (activeCategory === "tiny") {
+      return model.tags?.includes("Tiny");
+    }
+    return false;
   });
 
   const getModelStatus = (modelId) => {
@@ -146,6 +167,17 @@ function ModelSwitcher({ isOpen, onClose }) {
             ✕
           </button>
         </header>
+
+        {/* Search bar */}
+        <div className="ms-search">
+          <input
+            type="text"
+            placeholder="🔍 Search models..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="search-input"
+          />
+        </div>
 
         {/* Category tabs */}
         <div className="ms-categories">
@@ -192,22 +224,50 @@ function ModelSwitcher({ isOpen, onClose }) {
                 <div key={model.id} className={`model-card ${modelStatus}`}>
                   <div className="model-card-header">
                     <span className="model-name">{model.name}</span>
-                    <span className="model-size">{model.size}</span>
+                    <div className="model-meta">
+                      <span className="model-vram">{model.vram}GB</span>
+                      <span className="model-size">{model.size}</span>
+                    </div>
                   </div>
 
                   <p className="model-desc">{model.description}</p>
 
-                  {modelStatus === "downloading" && (
-                    <div className="download-progress">
-                      <div className="progress-bar">
-                        <div
-                          className="progress-fill"
-                          style={{ width: `${progress}%` }}
-                        />
-                      </div>
-                      <span className="progress-text">{progress}%</span>
-                    </div>
-                  )}
+                  {/* Capability Badges */}
+                  <div className="capability-badges">
+                    {model.capabilities?.includes("vision") && (
+                      <span className="capability-tag vision">👁️ Vision</span>
+                    )}
+                    {model.capabilities?.includes("tool_use") && (
+                      <span className="capability-tag tool">🔧 Tools</span>
+                    )}
+                    {model.capabilities?.includes("coding") && (
+                      <span className="capability-tag coding">💻 Code</span>
+                    )}
+                    {model.type === "multimodal" &&
+                      !model.capabilities?.includes("vision") && (
+                        <span className="capability-tag vision">
+                          👁️ Multimodal
+                        </span>
+                      )}
+                  </div>
+
+                  {modelStatus === "downloading" &&
+                    (() => {
+                      const roundedProgress = Math.round(progress);
+                      return (
+                        <div className="download-progress">
+                          <div className="progress-bar">
+                            <div
+                              className="progress-fill"
+                              style={{ width: `${roundedProgress}%` }}
+                            />
+                          </div>
+                          <span className="progress-text">
+                            {roundedProgress}%
+                          </span>
+                        </div>
+                      );
+                    })()}
 
                   <div className="model-actions">
                     {/* VRAM Guard Warning */}
@@ -252,14 +312,31 @@ function ModelSwitcher({ isOpen, onClose }) {
                         🚀 Load
                       </button>
                     )}
-                    {modelStatus === "available" && (
-                      <button
-                        className="btn-download"
-                        onClick={() => handleDownloadModel(model.id)}
-                      >
-                        ⬇️ Download
-                      </button>
-                    )}
+                    {modelStatus === "available" &&
+                      (() => {
+                        const detectedRAM = navigator.deviceMemory || 4;
+                        const vramStatus = useModelStore
+                          .getState()
+                          .getVRAMStatus(model.id, detectedRAM);
+                        const isDisabled = vramStatus.status === "insufficient";
+
+                        return (
+                          <button
+                            className={`btn-download ${
+                              isDisabled ? "disabled" : ""
+                            }`}
+                            onClick={() => handleDownloadModel(model.id)}
+                            disabled={isDisabled}
+                            title={
+                              isDisabled
+                                ? "Not enough VRAM for this model"
+                                : "Download model"
+                            }
+                          >
+                            {isDisabled ? "🚫 Too Large" : "⬇️ Download"}
+                          </button>
+                        );
+                      })()}
                     {modelStatus === "downloading" && (
                       <span className="status-badge downloading">
                         Downloading...

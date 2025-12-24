@@ -1,14 +1,13 @@
 import { Position } from "@xyflow/react";
 import PF from "pathfinding";
 
-const GRID_SIZE = 40;
+const GRID_SIZE = 50;
 
 /**
  * Smart routing using Weighted A* on a virtual grid
- * - High weight near nodes to encourage open-space routing
- * - Strict straight approach segments
- * - Strict Orthogonal Elbows for Grid-Entry
- * - Quadratic Bezier smoothing (Minimal 2px for 'square' feel)
+ * - Strict orthogonal paths (no diagonals)
+ * - Elbows injected at handle-to-grid transitions
+ * - Minimal corner smoothing (2px)
  */
 export function getSmartPath({
   sourceX,
@@ -26,11 +25,25 @@ export function getSmartPath({
   let minY = Math.min(sourceY, targetY);
   let maxY = Math.max(sourceY, targetY);
 
-  const relevantNodes = nodes.filter(
-    (n) => !excludeNodeIds.includes(n.id) && n.width && n.height
-  );
+  // Filter nodes that have dimensions - check multiple possible locations for width/height
+  const relevantNodes = nodes
+    .filter((n) => {
+      if (excludeNodeIds.includes(n.id)) return false;
 
-  // Expand bounds to include relevant nodes + margin
+      // Check for dimensions in different possible locations
+      const w = n.width ?? n.measured?.width ?? n.computed?.width;
+      const h = n.height ?? n.measured?.height ?? n.computed?.height;
+
+      return w && h;
+    })
+    .map((n) => ({
+      ...n,
+      // Normalize width/height access
+      width: n.width ?? n.measured?.width ?? n.computed?.width ?? 200,
+      height: n.height ?? n.measured?.height ?? n.computed?.height ?? 100,
+      position: n.positionAbsolute ?? n.position,
+    }));
+
   relevantNodes.forEach((node) => {
     minX = Math.min(minX, node.position.x - 50);
     maxX = Math.max(maxX, node.position.x + node.width + 50);
@@ -38,7 +51,7 @@ export function getSmartPath({
     maxY = Math.max(maxY, node.position.y + node.height + 50);
   });
 
-  const GRID_MARGIN = 200;
+  const GRID_MARGIN = 150;
   minX -= GRID_MARGIN;
   minY -= GRID_MARGIN;
   maxX += GRID_MARGIN;
@@ -47,47 +60,42 @@ export function getSmartPath({
   const width = Math.ceil((maxX - minX) / GRID_SIZE);
   const height = Math.ceil((maxY - minY) / GRID_SIZE);
 
-  // Fail-safe for huge grids
-  if (width > 600 || height > 600) {
-    return getSimplePath(sourceX, sourceY, targetX, targetY);
+  if (width > 500 || height > 500) {
+    return getManhattanFallback(
+      sourceX,
+      sourceY,
+      targetX,
+      targetY,
+      sourcePosition,
+      targetPosition
+    );
   }
 
-  // 2. Create Weighted Grid
+  // 2. Grid helpers
   const toGrid = (val, minVal) => Math.round((val - minVal) / GRID_SIZE);
   const fromGrid = (val, minVal) => val * GRID_SIZE + minVal;
 
   const grid = new PF.Grid(width, height);
 
+  // 3. Mark obstacles - nodes are barriers that paths must route around
   relevantNodes.forEach((node) => {
-    // 2a. High Cost Buffer Zone (Node + 40px) - Weight: 20
-    const bufferPadding = 40;
-    const bufferStartX = toGrid(node.position.x - bufferPadding, minX);
-    const bufferStartY = toGrid(node.position.y - bufferPadding, minY);
-    const bufferEndX = toGrid(
-      node.position.x + node.width + bufferPadding,
-      minX
+    // Blocked zone (Node + 25px) - Unwalkable, paths CANNOT pass through
+    const blockPadding = 25;
+    const blockStartX = Math.max(
+      0,
+      toGrid(node.position.x - blockPadding, minX)
     );
-    const bufferEndY = toGrid(
-      node.position.y + node.height + bufferPadding,
-      minY
+    const blockStartY = Math.max(
+      0,
+      toGrid(node.position.y - blockPadding, minY)
     );
-
-    for (let x = bufferStartX; x <= bufferEndX; x++) {
-      for (let y = bufferStartY; y <= bufferEndY; y++) {
-        if (grid.isWalkableAt(x, y)) {
-          grid.setWeightAt(x, y, 20);
-        }
-      }
-    }
-
-    // 2b. Blocked Zone (Node + 10px) - Walkable: False
-    const blockPadding = 10;
-    const blockStartX = toGrid(node.position.x - blockPadding, minX);
-    const blockStartY = toGrid(node.position.y - blockPadding, minY);
-    const blockEndX = toGrid(node.position.x + node.width + blockPadding, minX);
-    const blockEndY = toGrid(
-      node.position.y + node.height + blockPadding,
-      minY
+    const blockEndX = Math.min(
+      width - 1,
+      toGrid(node.position.x + node.width + blockPadding, minX)
+    );
+    const blockEndY = Math.min(
+      height - 1,
+      toGrid(node.position.y + node.height + blockPadding, minY)
     );
 
     for (let x = blockStartX; x <= blockEndX; x++) {
@@ -97,31 +105,19 @@ export function getSmartPath({
     }
   });
 
-  // 3. Determine Start and End Points (Approach Segments)
-  const APPROACH_DIST = 20;
-  const startOffset = getHandleOffset(sourcePosition, APPROACH_DIST);
-  const endOffset = getHandleOffset(targetPosition, APPROACH_DIST);
+  // 4. Grid start/end
+  const gridStartX = Math.max(0, Math.min(width - 1, toGrid(sourceX, minX)));
+  const gridStartY = Math.max(0, Math.min(height - 1, toGrid(sourceY, minY)));
+  const gridEndX = Math.max(0, Math.min(width - 1, toGrid(targetX, minX)));
+  const gridEndY = Math.max(0, Math.min(height - 1, toGrid(targetY, minY)));
 
-  // Grid ENTRY Points
-  const entryX = sourceX + startOffset.x;
-  const entryY = sourceY + startOffset.y;
-  const exitX = targetX + endOffset.x;
-  const exitY = targetY + endOffset.y;
-
-  const gridStartX = toGrid(entryX, minX);
-  const gridStartY = toGrid(entryY, minY);
-  const gridEndX = toGrid(exitX, minX);
-  const gridEndY = toGrid(exitY, minY);
-
-  // Ensure start/end grid points are walkable
   grid.setWalkableAt(gridStartX, gridStartY, true);
   grid.setWalkableAt(gridEndX, gridEndY, true);
 
-  // 4. Find Path
+  // 5. Find path
   const finder = new PF.AStarFinder({
     allowDiagonal: false,
     dontCrossCorners: true,
-    weight: 20,
     heuristic: PF.Heuristic.manhattan,
   });
 
@@ -129,152 +125,158 @@ export function getSmartPath({
   try {
     path = finder.findPath(gridStartX, gridStartY, gridEndX, gridEndY, grid);
   } catch {
-    return getManhattanFallback(sourceX, sourceY, targetX, targetY);
+    return getManhattanFallback(
+      sourceX,
+      sourceY,
+      targetX,
+      targetY,
+      sourcePosition,
+      targetPosition
+    );
   }
 
   if (path.length === 0) {
-    return getManhattanFallback(sourceX, sourceY, targetX, targetY);
+    return getManhattanFallback(
+      sourceX,
+      sourceY,
+      targetX,
+      targetY,
+      sourcePosition,
+      targetPosition
+    );
   }
 
-  // 5. Post-Processing: Compress
-  const compressedGridPath = PF.Util.compressPath(path);
-
-  // Convert compressed path back to world coordinates
-  const worldPath = compressedGridPath.map(([x, y]) => [
+  // 6. Convert to world coordinates
+  const compressedPath = PF.Util.compressPath(path);
+  const gridPath = compressedPath.map(([x, y]) => [
     fromGrid(x, minX),
     fromGrid(y, minY),
   ]);
 
-  // 6. Force-Align Start/End to prevent diagonal jumps
-  // Instead of replacing [0], we prepend connection points
-  // Path so far: [GridStart (aligned), ..., GridEnd (aligned)]
+  // 7. Build final path with orthogonal elbows at handle transitions
+  let finalPath = [];
 
-  // Connection A: Entry -> GridStart
-  // If not orthogonal, inject Elbow
-  const startElbows = getOrthogonalConnection(
-    { x: entryX, y: entryY },
-    { x: worldPath[0][0], y: worldPath[0][1] },
-    sourcePosition // Direction we are coming FROM
+  // Start: Handle -> First Grid Point (with elbow if needed)
+  finalPath.push([sourceX, sourceY]);
+  const firstGrid = gridPath[0];
+  const startElbow = getOrthogonalElbow(
+    sourceX,
+    sourceY,
+    firstGrid[0],
+    firstGrid[1],
+    sourcePosition
+  );
+  if (startElbow) {
+    finalPath.push(startElbow);
+  }
+
+  // Add all grid points
+  gridPath.forEach((p) => finalPath.push(p));
+
+  // End: Last Grid Point -> Handle (with elbow if needed)
+  const lastGrid = gridPath[gridPath.length - 1];
+  const endElbow = getOrthogonalElbow(
+    lastGrid[0],
+    lastGrid[1],
+    targetX,
+    targetY,
+    getOppositePosition(targetPosition)
+  );
+  if (endElbow) {
+    finalPath.push(endElbow);
+  }
+  finalPath.push([targetX, targetY]);
+
+  // 8. Clean and round
+  finalPath = cleanPath(
+    finalPath.map(([x, y]) => [Math.round(x), Math.round(y)])
   );
 
-  // Connection B: GridEnd -> Exit
-  // If not orthogonal, inject Elbow
-  const lastIdx = worldPath.length - 1;
-  const endElbows = getOrthogonalConnection(
-    { x: worldPath[lastIdx][0], y: worldPath[lastIdx][1] },
-    { x: exitX, y: exitY },
-    null // Direction doesn't matter as much, just orthogonalize
-  );
-
-  // Reassemble Full Path:
-  // [Source Handle] -> [Entry] -> [StartElbows] -> [GridPath] -> [EndElbows] -> [Exit] -> [Target Handle]
-
-  let finalPoints = [];
-  finalPoints.push([sourceX, sourceY]); // Start Handle
-  finalPoints.push([entryX, entryY]); // Entry Point
-
-  startElbows.forEach((p) => finalPoints.push([p.x, p.y]));
-
-  // Add Grid Path (skip first/last if we overlap, but keeping them is safe with compress)
-  worldPath.forEach((p) => finalPoints.push(p));
-
-  endElbows.forEach((p) => finalPoints.push([p.x, p.y]));
-
-  finalPoints.push([exitX, exitY]); // Exit Point
-  finalPoints.push([targetX, targetY]); // End Handle
-
-  // Round coordinates
-  finalPoints = finalPoints.map(([x, y]) => [Math.round(x), Math.round(y)]);
-
-  // Remove duplicate/collinear points again to be clean
-  finalPoints = cleanPath(finalPoints);
-
-  return generateRoundedPath(finalPoints, 2);
+  return generateRoundedPath(finalPath, 12);
 }
 
 /**
- * Generate orthogonal connection points between A and B
- * Returns array of intermediate points (0, 1, or 2 points)
+ * Get an orthogonal elbow point between two points if they're not aligned
  */
-function getOrthogonalConnection(ptA, ptB, startDirection) {
-  // If already aligned in X or Y, straight line is fine
-  if (Math.abs(ptA.x - ptB.x) < 1 || Math.abs(ptA.y - ptB.y) < 1) {
-    return [];
+function getOrthogonalElbow(x1, y1, x2, y2, fromPosition) {
+  // Already aligned
+  if (Math.abs(x1 - x2) < 1 || Math.abs(y1 - y2) < 1) {
+    return null;
   }
 
-  // If diagonal, need an elbow.
-  // Strategy: Extend from A in preferred direction first
-  let moveHorizontalFirst = true;
+  // Determine elbow direction based on handle position
+  const isHorizontalHandle =
+    fromPosition === Position.Left || fromPosition === Position.Right;
 
-  if (startDirection) {
-    if (startDirection === Position.Left || startDirection === Position.Right) {
-      moveHorizontalFirst = true; // Maintain Y, change X
-    } else {
-      moveHorizontalFirst = false; // Maintain X, change Y
-    }
+  if (isHorizontalHandle) {
+    // Move horizontal first (keep y1, change x)
+    return [x2, y1];
   } else {
-    // Heuristic: move in largest delta dimension first? Or just X.
-    // Let's default to X first (horizontal)
-    moveHorizontalFirst = true;
-  }
-
-  if (moveHorizontalFirst) {
-    // Move Horizontal to match B.x, keep A.y
-    // Elbow at (B.x, A.y)
-    return [{ x: ptB.x, y: ptA.y }];
-  } else {
-    // Move Vertical to match B.y, keep A.x
-    // Elbow at (A.x, B.y)
-    return [{ x: ptA.x, y: ptB.y }];
+    // Move vertical first (keep x1, change y)
+    return [x1, y2];
   }
 }
 
 /**
- * Clean path by removing duplicate consecutive points
+ * Get opposite handle position
+ */
+function getOppositePosition(pos) {
+  switch (pos) {
+    case Position.Left:
+      return Position.Right;
+    case Position.Right:
+      return Position.Left;
+    case Position.Top:
+      return Position.Bottom;
+    case Position.Bottom:
+      return Position.Top;
+    default:
+      return Position.Right;
+  }
+}
+
+/**
+ * Clean path - remove duplicates and merge collinear segments
  */
 function cleanPath(points) {
   if (points.length < 2) return points;
-  const newPoints = [points[0]];
+
+  const result = [points[0]];
+
   for (let i = 1; i < points.length; i++) {
-    const prev = newPoints[newPoints.length - 1];
+    const prev = result[result.length - 1];
     const curr = points[i];
+
+    // Skip duplicates
     if (Math.abs(prev[0] - curr[0]) < 1 && Math.abs(prev[1] - curr[1]) < 1) {
-      continue; // duplicate
+      continue;
     }
-    newPoints.push(curr);
+
+    // Check collinearity
+    if (result.length >= 2) {
+      const prevPrev = result[result.length - 2];
+      const sameX = prevPrev[0] === prev[0] && prev[0] === curr[0];
+      const sameY = prevPrev[1] === prev[1] && prev[1] === curr[1];
+
+      if (sameX || sameY) {
+        result[result.length - 1] = curr;
+        continue;
+      }
+    }
+
+    result.push(curr);
   }
-  return newPoints;
+
+  return result;
 }
 
 /**
- * Calculate offset for handle positions
- */
-function getHandleOffset(position, distance) {
-  switch (position) {
-    case Position.Top:
-      return { x: 0, y: -distance };
-    case Position.Bottom:
-      return { x: 0, y: distance };
-    case Position.Left:
-      return { x: -distance, y: 0 };
-    case Position.Right:
-      return { x: distance, y: 0 };
-    default:
-      return { x: 0, y: 0 };
-  }
-}
-
-/**
- * Generate SVG path with Quadratic Bezier rounded corners
+ * Generate SVG path with minimal corner rounding
  */
 function generateRoundedPath(points, radius = 2) {
   if (points.length < 2) return ["", 0, 0];
 
-  // Start
   let d = `M ${points[0][0]} ${points[0][1]}`;
-
-  // For very first and last segment, ensure straight line (Approach)
-  // Our point array handles this naturally now.
 
   for (let i = 1; i < points.length - 1; i++) {
     const pPrev = points[i - 1];
@@ -288,7 +290,7 @@ function generateRoundedPath(points, radius = 2) {
 
     const r = Math.min(radius, l1 / 2, l2 / 2);
 
-    if (r < 1) {
+    if (r < 1 || l1 < 1 || l2 < 1) {
       d += ` L ${pCurr[0]} ${pCurr[1]}`;
     } else {
       const startX = pCurr[0] - (v1.x / l1) * r;
@@ -303,10 +305,9 @@ function generateRoundedPath(points, radius = 2) {
 
   d += ` L ${points[points.length - 1][0]} ${points[points.length - 1][1]}`;
 
-  // Label Positioning
   const midIndex = Math.floor(points.length / 2);
-  const pA = points[midIndex];
-  const pB = points[Math.min(midIndex + 1, points.length - 1)];
+  const pA = points[Math.max(0, midIndex - 1)];
+  const pB = points[Math.min(points.length - 1, midIndex)];
   const labelX = Math.round((pA[0] + pB[0]) / 2);
   const labelY = Math.round((pA[1] + pB[1]) / 2);
 
@@ -314,25 +315,26 @@ function generateRoundedPath(points, radius = 2) {
 }
 
 /**
- * Fallback orthogonal path if A* fails
- * Simple Manhattan routing (Step-connection)
+ * Manhattan fallback - orthogonal L or S shape
  */
-function getManhattanFallback(sx, sy, tx, ty) {
+function getManhattanFallback(sx, sy, tx, ty, sourcePos) {
   let points = [[sx, sy]];
 
-  const midX = (sx + tx) / 2;
-  points.push([midX, sy]);
-  points.push([midX, ty]);
+  const isSourceHorizontal =
+    sourcePos === Position.Left || sourcePos === Position.Right;
+
+  if (isSourceHorizontal) {
+    const midX = (sx + tx) / 2;
+    points.push([midX, sy]);
+    points.push([midX, ty]);
+  } else {
+    const midY = (sy + ty) / 2;
+    points.push([sx, midY]);
+    points.push([tx, midY]);
+  }
 
   points.push([tx, ty]);
-
-  // Round all
   points = points.map(([x, y]) => [Math.round(x), Math.round(y)]);
 
-  return generateRoundedPath(points, 2);
-}
-
-function getSimplePath(sx, sy, tx, ty) {
-  // Redirect to new fallback
-  return getManhattanFallback(sx, sy, tx, ty);
+  return generateRoundedPath(cleanPath(points), 2);
 }

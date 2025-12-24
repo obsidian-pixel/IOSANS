@@ -26,6 +26,9 @@ import useModelStore from "./store/modelStore";
 import webLLMService from "./engine/WebLLMService";
 import executionEngine from "./engine/ExecutionEngine";
 
+// Utilities
+import { verifyDownloadedModels } from "./utils/cacheUtils";
+
 // Styles
 import "./App.css";
 
@@ -63,6 +66,31 @@ function App() {
       window.removeEventListener("toggleOverseer", handleToggleOverseer);
       window.removeEventListener("startTour", handleStartTour);
     };
+  }, []);
+
+  // Cache rehydration: verify downloaded models against actual cache on startup
+  useEffect(() => {
+    const rehydrateCache = async () => {
+      const store = useModelStore.getState();
+      const claimed = store.downloadedModels;
+
+      if (claimed.length === 0) return;
+
+      console.log("🔍 Verifying cached models...");
+      const verified = await verifyDownloadedModels(claimed);
+
+      // Remove any models that aren't actually cached
+      if (verified.length !== claimed.length) {
+        console.warn(
+          `Removed ${claimed.length - verified.length} ghost models from list`
+        );
+        useModelStore.setState({ downloadedModels: verified });
+      } else {
+        console.log(`✅ All ${verified.length} models verified`);
+      }
+    };
+
+    rehydrateCache();
   }, []);
 
   // Initialize WebLLM model on mount (with guard for StrictMode double-invoke)
@@ -129,24 +157,29 @@ function App() {
       }
     };
 
-    const handleDownloadModel = (event) => {
+    const handleDownloadModel = async (event) => {
       const { modelId } = event.detail;
-      const setDownloadProgress = useModelStore.getState().setDownloadProgress;
+      const store = useModelStore.getState();
 
-      // Start non-blocking download
-      setDownloadProgress(modelId, 0, "downloading");
+      // Show "starting" state
+      store.setDownloadProgress(modelId, 0, "downloading");
 
-      webLLMService
-        .downloadModel(modelId, (progress) => {
-          setDownloadProgress(modelId, progress.progress * 100, "downloading");
-        })
-        .then(() => {
-          setDownloadProgress(modelId, 100, "complete");
-        })
-        .catch((error) => {
-          console.error("Download failed:", error);
-          setDownloadProgress(modelId, 0, "error");
+      try {
+        await webLLMService.downloadModel(modelId, (progress) => {
+          store.setDownloadProgress(
+            modelId,
+            progress.progress * 100,
+            "downloading"
+          );
         });
+
+        // Success: mark as downloaded in persisted store
+        store.markDownloaded(modelId);
+        console.log(`✅ Model ${modelId} downloaded and cached`);
+      } catch (error) {
+        console.error("Download failed:", error);
+        store.setDownloadProgress(modelId, 0, "error");
+      }
     };
 
     window.addEventListener("loadModel", handleLoadModel);

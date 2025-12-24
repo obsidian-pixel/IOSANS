@@ -5,12 +5,11 @@
 import { memo, useMemo } from "react";
 import useModelStore from "../../../store/modelStore";
 
-// Category labels
-const CATEGORY_LABELS = {
-  recommended: "⭐ Recommended",
-  qwen: "🔮 Qwen Models",
-  medium: "📦 Medium Models",
-  tiny: "⚡ Tiny Models",
+// Type labels for capability-based categories
+const TYPE_LABELS = {
+  multimodal: "👁️ Vision",
+  text: "💬 Reasoning",
+  coding: "💻 Coding",
 };
 
 function AIAgentConfig({ data, onUpdate }) {
@@ -19,18 +18,23 @@ function AIAgentConfig({ data, onUpdate }) {
   const modelStatus = useModelStore((state) => state.status);
   const currentModelId = useModelStore((state) => state.currentModelId);
 
-  // Filter models to only those that are downloaded (or currently loaded/active as fallback)
+  // Filter models: only downloaded AND capable of reasoning/tool_use
   const filteredModels = useMemo(() => {
-    return availableModels.filter((m) => downloadedModels.includes(m.id));
+    return availableModels.filter(
+      (m) =>
+        downloadedModels.includes(m.id) &&
+        (m.capabilities?.includes("reasoning") ||
+          m.capabilities?.includes("tool_use"))
+    );
   }, [availableModels, downloadedModels]);
 
-  // Group models by category
-  const modelsByCategory = useMemo(() => {
+  // Group models by type (not category)
+  const modelsByType = useMemo(() => {
     const groups = {};
     for (const model of filteredModels) {
-      const cat = model.category || "other";
-      if (!groups[cat]) groups[cat] = [];
-      groups[cat].push(model);
+      const type = model.type || "text";
+      if (!groups[type]) groups[type] = [];
+      groups[type].push(model);
     }
     return groups;
   }, [filteredModels]);
@@ -52,11 +56,8 @@ function AIAgentConfig({ data, onUpdate }) {
               }
               onChange={(e) => onUpdate({ modelId: e.target.value })}
             >
-              {Object.entries(modelsByCategory).map(([category, models]) => (
-                <optgroup
-                  key={category}
-                  label={CATEGORY_LABELS[category] || category}
-                >
+              {Object.entries(modelsByType).map(([type, models]) => (
+                <optgroup key={type} label={TYPE_LABELS[type] || type}>
                   {models.map((model) => (
                     <option key={model.id} value={model.id}>
                       {model.name} ({model.size})

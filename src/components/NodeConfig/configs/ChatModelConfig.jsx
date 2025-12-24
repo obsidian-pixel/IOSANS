@@ -6,13 +6,20 @@ import { memo } from "react";
 import useModelStore from "../../../store/modelStore";
 import "./ChatModelConfig.css";
 
-function ChatModelConfig({ data, onUpdate }) {
+function ChatModelConfig({ data, onUpdate, requiredCapability = null }) {
   const availableModels = useModelStore((state) => state.availableModels);
   const modelStatus = useModelStore((state) => state.status);
   const loadModel = useModelStore((state) => state.loadModel);
 
+  // Filter models by capability if specified
+  const filteredModels = requiredCapability
+    ? availableModels.filter((m) =>
+        m.capabilities?.includes(requiredCapability)
+      )
+    : availableModels;
+
   const handleModelChange = (modelId) => {
-    const model = availableModels.find((m) => m.id === modelId);
+    const model = filteredModels.find((m) => m.id === modelId);
     onUpdate({
       modelId,
       modelName: model?.name || modelId,
@@ -50,7 +57,7 @@ function ChatModelConfig({ data, onUpdate }) {
             onChange={(e) => handleModelChange(e.target.value)}
           >
             <option value="">Select a model...</option>
-            {availableModels.map((model) => (
+            {filteredModels.map((model) => (
               <option key={model.id} value={model.id}>
                 {model.name} ({model.size})
               </option>

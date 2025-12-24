@@ -562,6 +562,22 @@
   color: #93c5fd;
 }
 
+.btn-revise {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ddd;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.btn-revise:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+}
+
+.btn-revise:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .btn-apply {
   background: linear-gradient(
     135deg,

@@ -3,107 +3,10 @@
  * Uses a Web Worker to prevent UI blocking during inference
  */
 
-// Available models - organized by size and capability
-export const AVAILABLE_MODELS = [
-  // === Recommended (Small & Fast) ===
-  {
-    id: "gemma-2-2b-it-q4f16_1-MLC",
-    name: "Gemma 2 2B",
-    size: "~1.4GB",
-    description: "Google's fast, lightweight model (Recommended)",
-    category: "recommended",
-  },
-  {
-    id: "Qwen2.5-1.5B-Instruct-q4f16_1-MLC",
-    name: "Qwen 2.5 1.5B",
-    size: "~1GB",
-    description: "Alibaba's efficient small model",
-    category: "recommended",
-  },
-  {
-    id: "SmolLM2-1.7B-Instruct-q4f16_1-MLC",
-    name: "SmolLM2 1.7B",
-    size: "~1.1GB",
-    description: "HuggingFace's compact model",
-    category: "recommended",
-  },
-
-  // === Qwen Models ===
-  {
-    id: "Qwen2.5-0.5B-Instruct-q4f16_1-MLC",
-    name: "Qwen 2.5 0.5B",
-    size: "~350MB",
-    description: "Ultra-light Qwen for basic tasks",
-    category: "qwen",
-  },
-  {
-    id: "Qwen2.5-3B-Instruct-q4f16_1-MLC",
-    name: "Qwen 2.5 3B",
-    size: "~2GB",
-    description: "Balanced Qwen with good reasoning",
-    category: "qwen",
-  },
-  {
-    id: "Qwen2.5-7B-Instruct-q4f16_1-MLC",
-    name: "Qwen 2.5 7B",
-    size: "~4.5GB",
-    description: "Powerful Qwen for complex tasks",
-    category: "qwen",
-  },
-  {
-    id: "Qwen2.5-Coder-1.5B-Instruct-q4f16_1-MLC",
-    name: "Qwen 2.5 Coder 1.5B",
-    size: "~1GB",
-    description: "Optimized for code generation",
-    category: "qwen",
-  },
-  {
-    id: "Qwen2.5-Coder-7B-Instruct-q4f16_1-MLC",
-    name: "Qwen 2.5 Coder 7B",
-    size: "~4.5GB",
-    description: "Advanced coding assistant",
-    category: "qwen",
-  },
-
-  // === Medium Models ===
-  {
-    id: "Phi-3.5-mini-instruct-q4f16_1-MLC",
-    name: "Phi-3.5 Mini",
-    size: "~2.4GB",
-    description: "Microsoft's balanced 3.8B model",
-    category: "medium",
-  },
-  {
-    id: "Llama-3.2-3B-Instruct-q4f16_1-MLC",
-    name: "Llama 3.2 3B",
-    size: "~2GB",
-    description: "Meta's capable small model",
-    category: "medium",
-  },
-  {
-    id: "Mistral-7B-Instruct-v0.3-q4f16_1-MLC",
-    name: "Mistral 7B v0.3",
-    size: "~4.5GB",
-    description: "Mistral AI's flagship model",
-    category: "medium",
-  },
-
-  // === Tiny Models (Ultra-fast) ===
-  {
-    id: "TinyLlama-1.1B-Chat-v1.0-q4f16_1-MLC",
-    name: "TinyLlama 1.1B",
-    size: "~700MB",
-    description: "Ultra-fast for simple tasks",
-    category: "tiny",
-  },
-  {
-    id: "SmolLM2-360M-Instruct-q4f16_1-MLC",
-    name: "SmolLM2 360M",
-    size: "~250MB",
-    description: "Smallest practical model",
-    category: "tiny",
-  },
-];
+// Model registry is now centralized in modelStore.js
+// Import it there if you need the list:
+// import useModelStore from '../store/modelStore';
+// const models = useModelStore.getState().availableModels;
 
 class WebLLMService {
   constructor() {
@@ -194,7 +97,12 @@ class WebLLMService {
   /**
    * Initialize the worker and load model
    */
-  async initialize(modelId = AVAILABLE_MODELS[0].id, onProgress = null) {
+  async initialize(modelId, onProgress = null) {
+    if (!modelId) {
+      throw new Error(
+        "Model ID is required. Get models from modelStore.availableModels."
+      );
+    }
     if (this.isLoading) {
       throw new Error("Model is already loading");
     }

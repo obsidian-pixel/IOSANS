@@ -857,7 +857,22 @@ class OverseerService {
       return response;
     } catch (error) {
       console.error("Overseer Error:", error);
-      return `Error: ${error.message}. Is a model loaded?`;
+
+      // CRITICAL: Still save the user message and error to session history
+      const errorMessage = `❌ Error: ${error.message}. Is a model loaded?`;
+      session.messages.push({ role: "user", content: userMessage });
+      session.messages.push({ role: "assistant", content: errorMessage });
+      session.timestamp = Date.now();
+
+      // Auto-title even on errors
+      if (session.title === "New Chat" && session.messages.length <= 2) {
+        session.title = userMessage.split(" ").slice(0, 5).join(" ") + "...";
+      }
+
+      this.saveSessions();
+      this.notifySubscribers();
+
+      return errorMessage;
     }
   }
 

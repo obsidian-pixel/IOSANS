@@ -3,9 +3,8 @@
  * Custom edge with flow animation, hover buttons, and Ghost Data tooltip
  */
 import { memo, useState, useRef, useMemo, useCallback } from "react";
-import { BaseEdge, EdgeLabelRenderer } from "@xyflow/react";
+import { BaseEdge, EdgeLabelRenderer, useNodes } from "@xyflow/react";
 import { useShallow } from "zustand/react/shallow";
-import useWorkflowStore from "../../store/workflowStore";
 import useExecutionStore from "../../store/executionStore";
 import { getSmartPath } from "../../utils/smartRouting";
 import { HANDLE_TYPES } from "../../utils/handleTypes";
@@ -30,8 +29,8 @@ function AnimatedEdge({
   const [showGhostData, setShowGhostData] = useState(false);
   const hoverTimeoutRef = useRef(null);
 
-  // Get nodes for collision detection
-  const nodes = useWorkflowStore((state) => state.nodes);
+  // Get nodes WITH measured dimensions from React Flow (not from store)
+  const nodes = useNodes();
 
   // Get execution state for edge status
   const { currentNodeId, edgeSnapshots, isRunning } = useExecutionStore(

@@ -600,16 +600,42 @@ Always respond with valid JSON. Do not include any text outside the JSON object.
                   message: `✅ Tool '${toolName}' executed successfully`,
                 });
 
-                // Add tool call and result to history for next iteration
+                // Check if tool output is binary/blob data
+                const isBinaryOutput =
+                  toolResult.output instanceof Blob ||
+                  toolResult.output instanceof ArrayBuffer ||
+                  (typeof toolResult.output === "object" &&
+                    (toolResult.output?.audioBlob ||
+                      toolResult.output?.imageBlob ||
+                      toolResult.output?.videoBlob)) ||
+                  (typeof toolResult.output === "string" &&
+                    toolResult.output.startsWith("data:"));
+
+                // Store the actual tool output for binary data passthrough
+                if (isBinaryOutput) {
+                  // For binary outputs, store as final output immediately
+                  // The AI doesn't need to process binary data
+                  context.addLog({
+                    type: "info",
+                    nodeId: context.nodeId,
+                    nodeName: data.label || "AI Agent",
+                    message: `🔄 Binary output detected, passing through directly`,
+                  });
+                  finalOutput = toolResult.output;
+                  break; // Exit loop and return binary data
+                }
+
+                // Add tool call and result to history for next iteration (text data)
+                const toolOutputStr =
+                  typeof toolResult.output === "object"
+                    ? JSON.stringify(toolResult.output)
+                    : String(toolResult.output);
+
                 conversationHistory.push(
                   { role: "assistant", content: cleanResponse },
                   {
                     role: "user",
-                    content: `Tool "${toolName}" returned: ${
-                      typeof toolResult.output === "object"
-                        ? JSON.stringify(toolResult.output)
-                        : String(toolResult.output)
-                    }\n\nPlease provide your final answer using: {"action": "answer", "content": "..."}`,
+                    content: `Tool "${toolName}" returned: ${toolOutputStr}\n\nPlease provide your final answer using: {"action": "answer", "content": "..."}`,
                   }
                 );
                 currentUserMessage = ""; // History contains the context now
@@ -838,7 +864,45 @@ Always respond with valid JSON. Do not include any text outside the JSON object.
 
       clearTimeout(timeoutId);
 
-      const responseData = await response.json().catch(() => ({}));
+      // Detect content type to handle binary vs text responses
+      const contentType = response.headers.get("content-type") || "";
+      let responseData;
+
+      if (
+        contentType.includes("audio/") ||
+        contentType.includes("video/") ||
+        contentType.includes("image/") ||
+        contentType.includes("application/octet-stream")
+      ) {
+        // Binary content - return as Blob
+        const blob = await response.blob();
+        responseData = {
+          audioBlob: contentType.includes("audio/") ? blob : undefined,
+          imageBlob: contentType.includes("image/") ? blob : undefined,
+          videoBlob: contentType.includes("video/") ? blob : undefined,
+          blob: blob,
+          mimeType: contentType.split(";")[0],
+          url: URL.createObjectURL(blob),
+        };
+
+        context.addLog({
+          type: "success",
+          nodeId: context.nodeId,
+          nodeName: data.label || "HTTP Request",
+          message: `📥 Received binary data (${contentType.split(";")[0]})`,
+        });
+      } else if (contentType.includes("application/json")) {
+        // JSON response
+        responseData = await response.json().catch(() => ({}));
+      } else {
+        // Text or other - try JSON first, fallback to text
+        const text = await response.text();
+        try {
+          responseData = JSON.parse(text);
+        } catch {
+          responseData = text;
+        }
+      }
 
       return {
         output: {
@@ -846,6 +910,13 @@ Always respond with valid JSON. Do not include any text outside the JSON object.
           statusText: response.statusText,
           data: responseData,
           headers: Object.fromEntries(response.headers.entries()),
+          // Flatten binary outputs for easier detection
+          ...(responseData?.audioBlob
+            ? { audioBlob: responseData.audioBlob }
+            : {}),
+          ...(responseData?.imageBlob
+            ? { imageBlob: responseData.imageBlob }
+            : {}),
         },
       };
     } catch (error) {
