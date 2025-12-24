@@ -1,0 +1,86 @@
+{
+  "name": "Poem to Speech Demo",
+  "version": "1.0.0",
+  "description": "Generate a poem using AI and convert it to speech audio",
+  "nodes": [
+    {
+      "id": "trigger-1",
+      "type": "manualTrigger",
+      "position": { "x": 100, "y": 200 },
+      "data": {
+        "label": "Start",
+        "description": "Enter your poem topic",
+        "inputFields": [
+          {
+            "name": "topic",
+            "type": "text",
+            "label": "Poem Topic",
+            "placeholder": "Enter a topic for the poem...",
+            "required": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "ai-1",
+      "type": "aiAgent",
+      "position": { "x": 350, "y": 200 },
+      "data": {
+        "label": "Poem Writer",
+        "systemPrompt": "You are a creative poet. Write beautiful, evocative poems based on the given topic. Keep poems to 4-8 lines. Output ONLY the poem, no commentary.",
+        "reasoningMode": "direct",
+        "temperature": 0.8,
+        "maxTokens": 500
+      }
+    },
+    {
+      "id": "tts-1",
+      "type": "textToSpeech",
+      "position": { "x": 600, "y": 200 },
+      "data": {
+        "label": "Speak Poem",
+        "provider": "webSpeech",
+        "voice": "default",
+        "speed": 0.9,
+        "pitch": 1.0,
+        "autoPlay": true
+      }
+    },
+    {
+      "id": "output-1",
+      "type": "output",
+      "position": { "x": 850, "y": 200 },
+      "data": {
+        "label": "Final Output",
+        "outputType": "console",
+        "formatJson": false
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "source": "trigger-1",
+      "target": "ai-1",
+      "sourceHandle": "output-0",
+      "targetHandle": "input-0",
+      "type": "animated"
+    },
+    {
+      "id": "e2",
+      "source": "ai-1",
+      "target": "tts-1",
+      "sourceHandle": "output-0",
+      "targetHandle": "input-0",
+      "type": "animated"
+    },
+    {
+      "id": "e3",
+      "source": "tts-1",
+      "target": "output-1",
+      "sourceHandle": "output-0",
+      "targetHandle": "input-0",
+      "type": "animated"
+    }
+  ]
+}
