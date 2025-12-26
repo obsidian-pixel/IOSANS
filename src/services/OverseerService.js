@@ -500,19 +500,32 @@ class OverseerService {
    * Subscribe to executionStore for error events (Agentic Debugger)
    */
   setupErrorSubscription() {
-    // Subscribe to store changes
-    useExecutionStore.subscribe((state, prevState) => {
-      // Detect new error logs
-      const newLogs = state.logs.filter(
-        (log) =>
-          log.type === "error" && !prevState.logs.some((pl) => pl.id === log.id)
-      );
+    // Subscribe to store changes and store unsubscribe for cleanup
+    this.unsubscribeExecution = useExecutionStore.subscribe(
+      (state, prevState) => {
+        // Detect new error logs
+        const newLogs = state.logs.filter(
+          (log) =>
+            log.type === "error" &&
+            !prevState.logs.some((pl) => pl.id === log.id)
+        );
 
-      if (newLogs.length > 0) {
-        const latestError = newLogs[newLogs.length - 1];
-        this.handleExecutionError(latestError);
+        if (newLogs.length > 0) {
+          const latestError = newLogs[newLogs.length - 1];
+          this.handleExecutionError(latestError);
+        }
       }
-    });
+    );
+  }
+
+  /**
+   * Cleanup subscriptions (call on service disposal)
+   */
+  cleanup() {
+    if (this.unsubscribeExecution) {
+      this.unsubscribeExecution();
+      this.unsubscribeExecution = null;
+    }
   }
 
   /**
@@ -850,7 +863,6 @@ class OverseerService {
       // 5. Parse and Execute Actions
       const actions = this.parseActions(response);
       if (actions.length > 0) {
-        console.log("Overseer executing actions:", actions);
         this.executeActions(actions);
       }
 
@@ -1080,9 +1092,9 @@ class OverseerService {
                 type: "animated",
               })
             );
-            console.log(`Overseer: Loaded template '${template.name}'`);
+            // Template loaded
           } else {
-            console.warn(`Overseer: Template '${action.templateId}' not found`);
+            // Template not found
           }
           break;
         }
@@ -1098,7 +1110,7 @@ class OverseerService {
                 data: { ...updatedNodes[nodeIndex].data, ...action.config },
               };
               store.setNodes(updatedNodes);
-              console.log(`Overseer: Updated node '${action.nodeId}'`);
+              // Node updated
             }
           }
           break;
@@ -1106,14 +1118,14 @@ class OverseerService {
 
         case "runWorkflow": {
           window.dispatchEvent(new CustomEvent("startWorkflow"));
-          console.log("Overseer: Triggered workflow execution");
+          // Workflow triggered
           break;
         }
 
         case "focusNode": {
           if (action.nodeId) {
             store.openConfig(action.nodeId);
-            console.log(`Overseer: Focused on node '${action.nodeId}'`);
+            // Focused on node
           }
           break;
         }
@@ -1123,14 +1135,14 @@ class OverseerService {
           window.dispatchEvent(
             new CustomEvent("startTutorial", { detail: action.tutorialId })
           );
-          console.log(`Overseer: Started tutorial '${action.tutorialId}'`);
+          // Tutorial started
           break;
         }
 
         case "undoAction": {
           const undone = this.undoLastAction();
           if (undone) {
-            console.log(`Overseer: Undid action '${undone.type}'`);
+            // Action undone
           }
           break;
         }

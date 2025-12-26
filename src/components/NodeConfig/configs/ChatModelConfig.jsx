@@ -9,7 +9,7 @@ import "./ChatModelConfig.css";
 function ChatModelConfig({ data, onUpdate, requiredCapability = null }) {
   const availableModels = useModelStore((state) => state.availableModels);
   const modelStatus = useModelStore((state) => state.status);
-  const loadModel = useModelStore((state) => state.loadModel);
+  const downloadedModels = useModelStore((state) => state.downloadedModels);
 
   // Filter models by capability if specified
   const filteredModels = requiredCapability
@@ -26,11 +26,17 @@ function ChatModelConfig({ data, onUpdate, requiredCapability = null }) {
     });
   };
 
-  const handleLoadModel = async () => {
-    if (data.modelId) {
-      await loadModel(data.modelId);
+  const handleLoadModel = () => {
+    if (data.modelId && downloadedModels.includes(data.modelId)) {
+      // Use window event to trigger model loading (handled by App.jsx)
+      window.dispatchEvent(
+        new CustomEvent("loadModel", { detail: { modelId: data.modelId } })
+      );
     }
   };
+
+  const isModelDownloaded =
+    data.modelId && downloadedModels.includes(data.modelId);
 
   return (
     <div className="chat-model-config">
@@ -78,9 +84,12 @@ function ChatModelConfig({ data, onUpdate, requiredCapability = null }) {
               <button
                 className="load-model-btn"
                 onClick={handleLoadModel}
-                disabled={!data.modelId}
+                disabled={!isModelDownloaded}
+                title={
+                  !isModelDownloaded ? "Download model first" : "Load model"
+                }
               >
-                Load Model
+                {isModelDownloaded ? "Load Model" : "Not Downloaded"}
               </button>
             )}
           </div>

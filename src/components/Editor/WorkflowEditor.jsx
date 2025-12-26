@@ -118,6 +118,7 @@ function WorkflowEditor() {
   const setSelectedNode = useWorkflowStore((state) => state.setSelectedNode);
   const selectedNodeId = useWorkflowStore((state) => state.selectedNodeId);
   const getWorkflowData = useWorkflowStore((state) => state.getWorkflowData);
+  const closeConfig = useWorkflowStore((state) => state.closeConfig);
 
   // Toast
   const toast = useToastStore();
@@ -147,6 +148,8 @@ function WorkflowEditor() {
   const handleNodeContextMenu = useCallback(
     (event, node) => {
       event.preventDefault();
+      // Ensure config is closed on right-click (only open via ⚙️ button)
+      closeConfig();
       // Select the node so context menu actions work
       setSelectedNode(node.id);
       setContextMenu({
@@ -156,7 +159,7 @@ function WorkflowEditor() {
         nodeId: node.id,
       });
     },
-    [setSelectedNode]
+    [setSelectedNode, closeConfig]
   );
 
   // Handle pane context menu

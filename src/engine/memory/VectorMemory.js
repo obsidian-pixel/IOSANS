@@ -33,7 +33,6 @@ class VectorMemory {
       this.worker.onmessage = (e) => {
         if (e.data.type === "ready") {
           this.workerReady = true;
-          console.log("🧠 Embedding Worker ready");
         }
       };
 

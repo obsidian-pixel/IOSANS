@@ -17,10 +17,11 @@ export default function ExecutionControls() {
   const handleRun = useCallback(async () => {
     if (isRunning) return;
     const executionStore = useExecutionStore.getState();
+    const workflowStore = useWorkflowStore.getState();
     await executionEngine.execute(
       nodes,
       edges,
-      { executionStore },
+      { executionStore, workflowStore },
       {},
       { debug: isDebugMode }
     );

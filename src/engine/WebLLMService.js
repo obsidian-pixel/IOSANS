@@ -178,29 +178,33 @@ class WebLLMService {
     const streaming = !!onToken;
 
     return new Promise((resolve, reject) => {
-      // Safety timeout: If no response within 60s, assume worker died
-      const timeoutId = setTimeout(() => {
-        this.worker.removeEventListener("message", handler);
-        reject(new Error("Model generation timed out (worker unresponsive)"));
-      }, 60000);
+      // Safety timeout: If no activity within 60s, assume worker died
+      // This is reset on each token for streaming responses
+      let timeoutId;
+      const resetTimeout = () => {
+        if (timeoutId) clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          this.worker.removeEventListener("message", handler);
+          reject(new Error("Model generation timed out (worker unresponsive)"));
+        }, 60000);
+      };
+      resetTimeout(); // Initial start
 
       const handler = (event) => {
         const { type, id, text, token, error } = event.data;
 
         if (id !== messageId) return;
 
-        // Reset timeout on activity
-        if (type === "GENERATE_TOKEN" || type === "GENERATE_COMPLETE") {
-          clearTimeout(timeoutId);
-        }
-
         switch (type) {
           case "GENERATE_TOKEN":
+            // Reset timeout on each token - generation is still active
+            resetTimeout();
             if (onToken) {
               onToken(token, text);
             }
             break;
           case "GENERATE_COMPLETE":
+            clearTimeout(timeoutId);
             this.worker.removeEventListener("message", handler);
             resolve(text);
             break;

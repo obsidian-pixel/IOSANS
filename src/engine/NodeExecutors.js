@@ -8,6 +8,8 @@ import { saveArtifact } from "../utils/artifactStorage";
 import { vectorMemoryService } from "../services/VectorMemoryService";
 import { executeSandboxed } from "../utils/sandboxedExecutor";
 import { autoDetectType, dataUriToBlob } from "../utils/autoDetectType";
+import { runJSONReActLoop } from "./ToolCallingService";
+import mespeakService from "../services/MespeakService";
 
 /**
  * Execute a single node and return its output
@@ -57,11 +59,11 @@ const detectContentType = (input) => {
     };
   }
 
-  // Check for nested audio/image blob fields
+  // Check for nested audio/image/video blob fields
   if (input?.audioBlob instanceof Blob) {
     return {
       mimeType: input.audioBlob.type || "audio/wav",
-      extension: ".wav",
+      extension: getExtensionFromMime(input.audioBlob.type) || ".wav",
       data: input.audioBlob,
       isBlob: true,
     };
@@ -70,8 +72,36 @@ const detectContentType = (input) => {
   if (input?.imageBlob instanceof Blob) {
     return {
       mimeType: input.imageBlob.type || "image/png",
-      extension: ".png",
+      extension: getExtensionFromMime(input.imageBlob.type) || ".png",
       data: input.imageBlob,
+      isBlob: true,
+    };
+  }
+
+  if (input?.videoBlob instanceof Blob) {
+    return {
+      mimeType: input.videoBlob.type || "video/mp4",
+      extension: getExtensionFromMime(input.videoBlob.type) || ".mp4",
+      data: input.videoBlob,
+      isBlob: true,
+    };
+  }
+
+  // Generic blob or data properties
+  if (input?.blob instanceof Blob) {
+    return {
+      mimeType: input.blob.type || "application/octet-stream",
+      extension: getExtensionFromMime(input.blob.type) || ".bin",
+      data: input.blob,
+      isBlob: true,
+    };
+  }
+
+  if (input?.data instanceof Blob) {
+    return {
+      mimeType: input.data.type || "application/octet-stream",
+      extension: getExtensionFromMime(input.data.type) || ".bin",
+      data: input.data,
       isBlob: true,
     };
   }
@@ -87,9 +117,26 @@ const detectContentType = (input) => {
     };
   }
 
+  // Data URI strings (audio, image, video)
+  if (typeof input === "string" && input.startsWith("data:")) {
+    const mimeMatch = input.match(/^data:([^;,]+)/);
+    const mimeType = mimeMatch ? mimeMatch[1] : "application/octet-stream";
+    const blob = dataUriToBlob(input);
+    if (blob) {
+      return {
+        mimeType: mimeType,
+        extension: getExtensionFromMime(mimeType),
+        data: blob,
+        isBlob: true,
+        isDataUri: true,
+      };
+    }
+  }
+
   // URL-based content (blob URLs)
   if (typeof input?.url === "string" && input.url.startsWith("blob:")) {
-    const inferredType = input.type || "application/octet-stream";
+    const inferredType =
+      input.type || input.mimeType || "application/octet-stream";
     return {
       mimeType: inferredType,
       extension: getExtensionFromMime(inferredType),
@@ -108,8 +155,36 @@ const detectContentType = (input) => {
     };
   }
 
-  // JSON object - most common case for workflow data
+  // JSON object - check for special types before generic JSON
   if (typeof input === "object" && input !== null) {
+    // Check for TTS/audio output with type or mimeType property
+    if (
+      input.type === "audio" ||
+      input.mimeType?.startsWith("audio/") ||
+      input.type === "speech"
+    ) {
+      // This is a TTS output - mark as audio for proper handling
+      return {
+        mimeType: input.mimeType || "audio/speech",
+        extension: ".json", // Keep as JSON since it's metadata, not actual audio
+        data: JSON.stringify(input, null, 2),
+        isBlob: false,
+        isAudioMetadata: true, // Flag for special handling
+      };
+    }
+
+    // Check for image output
+    if (input.type === "image" || input.mimeType?.startsWith("image/")) {
+      return {
+        mimeType: input.mimeType || "image/png",
+        extension: getExtensionFromMime(input.mimeType) || ".png",
+        data: JSON.stringify(input, null, 2),
+        isBlob: false,
+        isImageMetadata: true,
+      };
+    }
+
+    // Generic JSON object
     const jsonStr = JSON.stringify(input, null, 2);
     return {
       mimeType: "application/json",
@@ -253,6 +328,154 @@ const createArtifact = async (context, name, type, data) => {
 };
 
 /**
+ * Detect the format of input data for AI Agent processing
+ * @param {*} input - The input data to analyze
+ * @returns {string} - "conversation", "json", or "text"
+ */
+const detectInputFormat = (input) => {
+  // Check for conversation history array
+  if (Array.isArray(input) && input.length > 0) {
+    const hasRoles = input.some(
+      (item) =>
+        item &&
+        typeof item === "object" &&
+        ("role" in item || "content" in item)
+    );
+    if (hasRoles) return "conversation";
+  }
+
+  // Check for JSON object with structured data
+  if (typeof input === "object" && input !== null && !Array.isArray(input)) {
+    // Check for common workflow data patterns
+    if (input.data || input.text || input.content || input.message) {
+      return "json";
+    }
+    // Check if it's a structured object (multiple keys)
+    if (Object.keys(input).length > 1) {
+      return "json";
+    }
+  }
+
+  // Default to text
+  return "text";
+};
+
+/**
+ * Format JSON data as a readable context for AI processing
+ * @param {Object} input - The JSON input data
+ * @param {string} userMessage - Optional user message template
+ * @returns {string} - Formatted message for AI
+ */
+const formatJSONForAI = (input, userMessage) => {
+  if (userMessage) {
+    // If user message template exists, use expression resolution
+    if (userMessage.includes("{{")) {
+      return resolveExpressions(userMessage, { input });
+    }
+    return userMessage;
+  }
+
+  // Otherwise, create a structured description
+  const keys = Object.keys(input);
+  if (keys.length === 0) {
+    return "Empty data provided.";
+  }
+
+  // Check for common text fields first
+  const textFields = ["text", "content", "message", "query", "prompt", "input"];
+  for (const field of textFields) {
+    if (input[field] && typeof input[field] === "string") {
+      return input[field];
+    }
+  }
+
+  // Check for data wrapper
+  if (input.data && typeof input.data === "object") {
+    return formatInputForAI(input.data);
+  }
+
+  // Format as structured data
+  const dataStr = JSON.stringify(input, null, 2);
+  if (dataStr.length > 2000) {
+    // Truncate very long data
+    return `Process this data:\n${dataStr.slice(
+      0,
+      2000
+    )}...\n\n[Data truncated. Full data has ${keys.length} fields]`;
+  }
+  return `Process this data:\n${dataStr}`;
+};
+
+/**
+ * Format arbitrary input data for AI consumption
+ * Handles various types intelligently
+ * @param {*} input - The input data
+ * @returns {string} - Formatted string for AI
+ */
+const formatInputForAI = (input) => {
+  if (input === null || input === undefined) {
+    return "No input provided.";
+  }
+
+  if (typeof input === "string") {
+    return input;
+  }
+
+  if (typeof input === "number" || typeof input === "boolean") {
+    return String(input);
+  }
+
+  if (Array.isArray(input)) {
+    if (input.length === 0) {
+      return "Empty array provided.";
+    }
+    // Check if it's an array of simple values
+    if (
+      input.every(
+        (item) => typeof item === "string" || typeof item === "number"
+      )
+    ) {
+      return `List of items:\n${input
+        .map((item, i) => `${i + 1}. ${item}`)
+        .join("\n")}`;
+    }
+    // Complex array
+    return `Array with ${input.length} items:\n${JSON.stringify(
+      input,
+      null,
+      2
+    )}`;
+  }
+
+  if (typeof input === "object") {
+    // Check for common text fields first
+    const textFields = ["text", "content", "message", "query", "prompt"];
+    for (const field of textFields) {
+      if (input[field] && typeof input[field] === "string") {
+        return input[field];
+      }
+    }
+
+    // Check for data wrapper
+    if (input.data !== undefined) {
+      if (typeof input.data === "string") {
+        return input.data;
+      }
+      return formatInputForAI(input.data);
+    }
+
+    // Format as JSON
+    const str = JSON.stringify(input, null, 2);
+    if (str.length > 3000) {
+      return `Data object:\n${str.slice(0, 3000)}...\n[Truncated]`;
+    }
+    return str;
+  }
+
+  return String(input);
+};
+
+/**
  * Executor functions for each node type
  */
 const NodeExecutors = {
@@ -298,7 +521,7 @@ const NodeExecutors = {
     // 1. Merge input overrides (if input is config object)
     const mergedData = { ...data };
     if (typeof input === "object" && input !== null && !Array.isArray(input)) {
-      // Allow overriding specific config keys
+      // Allow overriding specific config keys from input
       ["model", "temperature", "maxTokens", "systemMessage"].forEach((key) => {
         if (input[key] !== undefined) mergedData[key] = input[key];
       });
@@ -307,7 +530,6 @@ const NodeExecutors = {
     // 2. Apply connected model settings (from Chat Model node via diamond handle)
     const connectedModel = mergedData.connectedModel;
     if (connectedModel) {
-      // Priority: connected model settings override node defaults
       if (connectedModel.temperature !== undefined) {
         mergedData.temperature = connectedModel.temperature;
       }
@@ -320,48 +542,71 @@ const NodeExecutors = {
     }
 
     const {
-      systemMessage,
+      systemPrompt,
+      systemMessage, // Legacy support
       userMessage,
+      inputFormat = "auto",
       temperature = 0.7,
       maxTokens = 1000,
+      maxIterations = 10,
     } = mergedData;
 
-    let history = [];
-    let currentMessage = "";
-    let finalSystemMessage = systemMessage || "";
+    // Build system prompt (support both systemPrompt and systemMessage)
+    let finalSystemMessage = systemPrompt || systemMessage || "";
 
-    // Case 1: Input is a conversation history array
-    if (Array.isArray(input) && input.length > 0) {
-      const last = input[input.length - 1];
-      currentMessage = last.content;
-      history = input.slice(0, -1);
-
-      // Extract system message from history if present to pass as config
-      const sysMsg = history.find((m) => m.role === "system");
-      if (sysMsg) {
-        finalSystemMessage = sysMsg.content;
-        history = history.filter((m) => m.role !== "system");
-      }
+    // Resolve expressions in system message
+    if (finalSystemMessage && finalSystemMessage.includes("{{")) {
+      finalSystemMessage = resolveExpressions(finalSystemMessage, { input });
     }
-    // Case 2: Standard config construction
-    else {
-      // Resolve system message
-      if (finalSystemMessage && finalSystemMessage.includes("{{")) {
-        finalSystemMessage = resolveExpressions(finalSystemMessage, { input });
-      }
 
-      // Resolve user message
-      if (userMessage) {
-        if (userMessage.includes("{{")) {
-          currentMessage = resolveExpressions(userMessage, { input });
-        } else {
-          currentMessage = userMessage;
+    // 3. Process input according to inputFormat setting
+    let currentMessage = "";
+    let history = [];
+
+    // Detect input format if auto
+    const detectedFormat =
+      inputFormat === "auto" ? detectInputFormat(input) : inputFormat;
+
+    switch (detectedFormat) {
+      case "conversation":
+        // Input is a conversation history array
+        if (Array.isArray(input) && input.length > 0) {
+          const last = input[input.length - 1];
+          currentMessage =
+            last.content ||
+            (typeof last === "string" ? last : JSON.stringify(last));
+          history = input.slice(0, -1);
+
+          // Extract system message from history if present
+          const sysMsg = history.find((m) => m.role === "system");
+          if (sysMsg) {
+            finalSystemMessage = sysMsg.content;
+            history = history.filter((m) => m.role !== "system");
+          }
         }
-      } else {
-        // Fallback to stringifying input
-        currentMessage =
-          typeof input === "string" ? input : JSON.stringify(input);
-      }
+        break;
+
+      case "json":
+        // Format JSON data as readable context for AI
+        currentMessage = formatJSONForAI(input, userMessage);
+        break;
+
+      case "text":
+      default:
+        // Plain text or auto-detected
+        if (userMessage) {
+          // Use user message template with expression resolution
+          if (userMessage.includes("{{")) {
+            currentMessage = resolveExpressions(userMessage, { input });
+          } else {
+            currentMessage = userMessage;
+          }
+        } else {
+          // Fallback to intelligent stringification
+          currentMessage =
+            typeof input === "string" ? input : formatInputForAI(input);
+        }
+        break;
     }
 
     context.addLog({
@@ -371,7 +616,7 @@ const NodeExecutors = {
       message: "🤖 AI processing...",
     });
 
-    // 3. Apply connected memory (Context Retrieval)
+    // 4. Apply connected memory (Context Retrieval)
     const connectedMemory = mergedData.connectedMemory;
     if (connectedMemory) {
       context.addLog({
@@ -388,11 +633,7 @@ const NodeExecutors = {
           connectedMemory.topK || 5
         );
 
-        if (
-          memoryResult &&
-          memoryResult.matches &&
-          memoryResult.matches.length > 0
-        ) {
+        if (memoryResult?.matches?.length > 0) {
           const contextText = memoryResult.matches
             .map(
               (m) =>
@@ -420,17 +661,10 @@ const NodeExecutors = {
           message: `⚠️ Memory retrieval failed: ${err.message}`,
         });
       }
-
-      context.addLog({
-        type: "info",
-        nodeId: context.nodeId,
-        nodeName: data.label || "AI Agent",
-        message: `🧠 Context prep complete. Starting generation...`,
-      });
     }
 
     try {
-      // Check if correct model is loaded
+      // 5. Ensure model is loaded
       const targetModelId = mergedData.modelId || "gemma-2-2b-it";
 
       if (
@@ -441,11 +675,10 @@ const NodeExecutors = {
           type: "info",
           nodeId: context.nodeId,
           nodeName: data.label || "AI Agent",
-          message: `🔄 Loading AI Model: ${targetModelId}... (This may take a moment)`,
+          message: `🔄 Loading AI Model: ${targetModelId}...`,
         });
 
         await webLLMService.initialize(targetModelId, () => {
-          // Report progress and heartbeat to prevent timeout
           if (context.heartbeat) context.heartbeat();
         });
 
@@ -457,64 +690,61 @@ const NodeExecutors = {
         });
       }
 
-      // Build tool-aware system prompt for JSON mode
+      // 6. Get tools and execute
       const tools = mergedData.tools || [];
-      let toolSystemPrompt = "";
 
-      if (tools.length > 0) {
-        toolSystemPrompt = `
-
-You have access to these tools:
-${tools
-  .map((t) => `- ${t.name}: ${t.description || "Execute " + t.type + " node"}`)
-  .join("\n")}
-
-IMPORTANT: When you need to use a tool, respond ONLY with this JSON format:
-{"action": "tool", "tool": "tool_name", "input": "your input for the tool"}
-
-When you have the final answer (after tool results or if no tool needed), respond with:
-{"action": "answer", "content": "your final response to the user"}
-
-Always respond with valid JSON. Do not include any text outside the JSON object.`;
-      }
-
-      const fullSystemPrompt = finalSystemMessage + toolSystemPrompt;
-
-      // Two-pass execution loop for tool calling
-      const MAX_TOOL_ITERATIONS = mergedData.maxIterations || 10;
-      let iteration = 0;
-      let conversationHistory = [...history];
-      let currentUserMessage = currentMessage;
-      let finalOutput = null;
-
-      while (iteration < MAX_TOOL_ITERATIONS) {
-        iteration++;
-
+      if (tools.length > 0 && mergedData.enableToolCalling !== false) {
+        // Use centralized ToolCallingService for tool-enabled execution
         context.addLog({
           type: "info",
           nodeId: context.nodeId,
           nodeName: data.label || "AI Agent",
-          message:
-            iteration === 1
-              ? `🤖 Generating response...`
-              : `🔄 Processing tool result (iteration ${iteration})...`,
+          message: `🔧 ${tools.length} tool(s) available: ${tools
+            .map((t) => t.name)
+            .join(", ")}`,
+        });
+
+        // Create enhanced context for tool calling
+        const toolContext = {
+          ...context,
+          nodeName: data.label || "AI Agent",
+        };
+
+        const result = await runJSONReActLoop(
+          currentMessage,
+          tools,
+          {
+            systemPrompt: finalSystemMessage,
+            maxTokens,
+            temperature,
+            maxIterations,
+            onHeartbeat: context.heartbeat,
+          },
+          toolContext
+        );
+
+        return { output: result.output };
+      } else {
+        // Simple generation without tools
+        context.addLog({
+          type: "info",
+          nodeId: context.nodeId,
+          nodeName: data.label || "AI Agent",
+          message: `🤖 Generating response...`,
         });
 
         const response = await webLLMService.generateWithHistory(
-          currentUserMessage,
-          conversationHistory,
+          currentMessage,
+          history,
           {
             temperature,
-            maxTokens: maxTokens,
-            systemPrompt: fullSystemPrompt,
+            maxTokens,
+            systemPrompt: finalSystemMessage,
           },
-          // Heartbeat callback for streaming/progress
           () => {
             if (context.heartbeat) context.heartbeat();
           }
         );
-
-        let cleanResponse = response.trim();
 
         context.addLog({
           type: "success",
@@ -523,194 +753,8 @@ Always respond with valid JSON. Do not include any text outside the JSON object.
           message: `✅ Generation complete`,
         });
 
-        // Try to parse as JSON (tool call or final answer)
-        let parsed = null;
-        try {
-          // Extract JSON from response (handle markdown code blocks)
-          let jsonStr = cleanResponse;
-          const jsonMatch = cleanResponse.match(/```(?:json)?\s*([\s\S]*?)```/);
-          if (jsonMatch) {
-            jsonStr = jsonMatch[1].trim();
-          }
-          // Also try to find raw JSON object
-          const rawJsonMatch = cleanResponse.match(/\{[\s\S]*\}/);
-          if (!jsonMatch && rawJsonMatch) {
-            jsonStr = rawJsonMatch[0];
-          }
-
-          parsed = JSON.parse(jsonStr);
-        } catch {
-          // Not valid JSON - treat as direct answer
-          context.addLog({
-            type: "info",
-            nodeId: context.nodeId,
-            nodeName: data.label || "AI Agent",
-            message: `📝 Response is not JSON, treating as direct answer`,
-          });
-          finalOutput = cleanResponse;
-          break;
-        }
-
-        // Handle parsed response
-        if (parsed.action === "answer") {
-          // Final answer
-          finalOutput = parsed.content || cleanResponse;
-          break;
-        } else if (parsed.action === "tool" && parsed.tool) {
-          // Tool call requested
-          const toolName = parsed.tool;
-          const toolInput = parsed.input;
-
-          context.addLog({
-            type: "warning",
-            nodeId: context.nodeId,
-            nodeName: data.label || "AI Agent",
-            message: `🛠️ Agent calling tool: ${toolName}`,
-            data: { tool: toolName, input: toolInput },
-          });
-
-          // Find the tool definition
-          const toolDef = tools.find(
-            (t) => t.name.toLowerCase() === toolName.toLowerCase()
-          );
-
-          if (toolDef) {
-            const toolNode = context.nodes.find((n) => n.id === toolDef.nodeId);
-
-            if (toolNode) {
-              context.addLog({
-                type: "info",
-                nodeId: context.nodeId,
-                nodeName: data.label || "AI Agent",
-                message: `🚀 Executing tool: ${toolName}...`,
-              });
-
-              // Execute the tool node
-              const toolResult = await executeNode(
-                toolNode,
-                toolInput,
-                context
-              );
-
-              if (toolResult.success) {
-                context.addLog({
-                  type: "success",
-                  nodeId: context.nodeId,
-                  nodeName: data.label || "AI Agent",
-                  message: `✅ Tool '${toolName}' executed successfully`,
-                });
-
-                // Check if tool output is binary/blob data
-                const isBinaryOutput =
-                  toolResult.output instanceof Blob ||
-                  toolResult.output instanceof ArrayBuffer ||
-                  (typeof toolResult.output === "object" &&
-                    (toolResult.output?.audioBlob ||
-                      toolResult.output?.imageBlob ||
-                      toolResult.output?.videoBlob)) ||
-                  (typeof toolResult.output === "string" &&
-                    toolResult.output.startsWith("data:"));
-
-                // Store the actual tool output for binary data passthrough
-                if (isBinaryOutput) {
-                  // For binary outputs, store as final output immediately
-                  // The AI doesn't need to process binary data
-                  context.addLog({
-                    type: "info",
-                    nodeId: context.nodeId,
-                    nodeName: data.label || "AI Agent",
-                    message: `🔄 Binary output detected, passing through directly`,
-                  });
-                  finalOutput = toolResult.output;
-                  break; // Exit loop and return binary data
-                }
-
-                // Add tool call and result to history for next iteration (text data)
-                const toolOutputStr =
-                  typeof toolResult.output === "object"
-                    ? JSON.stringify(toolResult.output)
-                    : String(toolResult.output);
-
-                conversationHistory.push(
-                  { role: "assistant", content: cleanResponse },
-                  {
-                    role: "user",
-                    content: `Tool "${toolName}" returned: ${toolOutputStr}\n\nPlease provide your final answer using: {"action": "answer", "content": "..."}`,
-                  }
-                );
-                currentUserMessage = ""; // History contains the context now
-
-                // If this is the last iteration, use tool result as output
-                if (iteration === MAX_TOOL_ITERATIONS) {
-                  finalOutput = toolResult.output;
-                }
-              } else {
-                context.addLog({
-                  type: "error",
-                  nodeId: context.nodeId,
-                  nodeName: data.label || "AI Agent",
-                  message: `❌ Tool '${toolName}' failed: ${toolResult.error}`,
-                });
-
-                // Inform the LLM about the error
-                conversationHistory.push(
-                  { role: "assistant", content: cleanResponse },
-                  {
-                    role: "user",
-                    content: `Tool "${toolName}" failed with error: ${toolResult.error}\n\nPlease handle this error and provide your final answer.`,
-                  }
-                );
-                currentUserMessage = "";
-              }
-            } else {
-              context.addLog({
-                type: "error",
-                nodeId: context.nodeId,
-                nodeName: data.label || "AI Agent",
-                message: `❌ Tool node not found: ${toolDef.nodeId}`,
-              });
-              finalOutput = `Error: Tool node "${toolName}" not found in workflow`;
-              break;
-            }
-          } else {
-            context.addLog({
-              type: "error",
-              nodeId: context.nodeId,
-              nodeName: data.label || "AI Agent",
-              message: `⚠️ Tool '${toolName}' not connected. Available: ${
-                tools.map((t) => t.name).join(", ") || "none"
-              }`,
-            });
-
-            // Inform LLM about missing tool
-            conversationHistory.push(
-              { role: "assistant", content: cleanResponse },
-              {
-                role: "user",
-                content: `Tool "${toolName}" is not available. Available tools: ${
-                  tools.map((t) => t.name).join(", ") || "none"
-                }.\n\nPlease provide your answer without using that tool.`,
-              }
-            );
-            currentUserMessage = "";
-          }
-        } else {
-          // Unknown action or malformed - treat as answer
-          finalOutput = parsed.content || cleanResponse;
-          break;
-        }
+        return { output: response.trim() };
       }
-
-      if (iteration >= MAX_TOOL_ITERATIONS && !finalOutput) {
-        context.addLog({
-          type: "warning",
-          nodeId: context.nodeId,
-          nodeName: data.label || "AI Agent",
-          message: `⚠️ Max tool iterations reached (${MAX_TOOL_ITERATIONS})`,
-        });
-      }
-
-      return { output: finalOutput };
     } catch (err) {
       throw new Error(`AI generation failed: ${err.message}`);
     }
@@ -769,10 +813,9 @@ Always respond with valid JSON. Do not include any text outside the JSON object.
       } catch (err) {
         throw new Error(`Execution error: ${err.message}`);
       }
-    } else if (language === "python" && window.pyodide) {
-      // Use Pyodide if available
-      // ... (omitted for brevity, handled by PyodideService usually)
-      throw new Error("Python execution not ready pending Pyodide load");
+    } else if (language === "python") {
+      // Forward to Python executor
+      return NodeExecutors.pythonExecutor({ ...data, code }, input, context);
     } else {
       throw new Error(`Unsupported language: ${language}`);
     }
@@ -838,7 +881,28 @@ Always respond with valid JSON. Do not include any text outside the JSON object.
 
   // HTTP Request Node (SECURED - URL validation enabled)
   httpRequest: async (data, input, context) => {
-    const { method = "GET", url, headers, body, timeout = 5000 } = data;
+    const { method = "GET", timeout = 5000 } = data;
+    let { url, headers, body } = data;
+
+    // Resolve expressions in URL, headers, and body
+    if (url && url.includes("{{")) {
+      url = resolveExpressions(url, { input, $json: input });
+    }
+    if (typeof headers === "string" && headers.includes("{{")) {
+      headers = resolveExpressions(headers, { input, $json: input });
+    }
+    if (typeof body === "string" && body.includes("{{")) {
+      body = resolveExpressions(body, { input, $json: input });
+    }
+
+    // Allow input to override URL if it's an object with url property
+    if (typeof input === "object" && input !== null && input.url) {
+      url = input.url;
+    }
+
+    if (!url) {
+      throw new Error("URL is required for HTTP request");
+    }
 
     context.addLog({
       type: "info",
@@ -851,14 +915,24 @@ Always respond with valid JSON. Do not include any text outside the JSON object.
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeout);
 
+      // Parse headers if string
+      let parsedHeaders = safeJsonParse(headers) || {};
+      if (typeof headers === "object" && headers !== null) {
+        parsedHeaders = headers;
+      }
+
+      // Prepare body - merge input data if body references it
+      let requestBody = body;
+      if (typeof body === "object" && body !== null) {
+        requestBody = JSON.stringify(body);
+      } else if (body === "{{$json}}" || body === "{{ $json }}") {
+        requestBody = JSON.stringify(input);
+      }
+
       const response = await fetch(url, {
         method,
-        headers: safeJsonParse(headers) || {},
-        body: ["GET", "HEAD"].includes(method)
-          ? undefined
-          : typeof body === "string"
-          ? body
-          : JSON.stringify(body),
+        headers: parsedHeaders,
+        body: ["GET", "HEAD"].includes(method) ? undefined : requestBody,
         signal: controller.signal,
       });
 
@@ -999,13 +1073,44 @@ Always respond with valid JSON. Do not include any text outside the JSON object.
       case "exists":
         result = leftValue !== undefined && leftValue !== null;
         break;
+      case "isEmpty":
+        result =
+          leftValue === undefined ||
+          leftValue === null ||
+          leftValue === "" ||
+          (Array.isArray(leftValue) && leftValue.length === 0) ||
+          (typeof leftValue === "object" &&
+            Object.keys(leftValue).length === 0);
+        break;
+      case "isNotEmpty":
+        result =
+          leftValue !== undefined &&
+          leftValue !== null &&
+          leftValue !== "" &&
+          !(Array.isArray(leftValue) && leftValue.length === 0) &&
+          !(
+            typeof leftValue === "object" &&
+            leftValue !== null &&
+            Object.keys(leftValue).length === 0
+          );
+        break;
+      case "isTrue":
+        result = !!leftValue;
+        break;
+      case "isFalse":
+        result = !leftValue;
+        break;
+      default:
+        result = false;
     }
 
     context.addLog({
       type: "info",
       nodeId: context.nodeId,
       nodeName: data.label || "If/Else",
-      message: `🔀 Check: ${condition} ${operator} ${compareValue} -> ${result}`,
+      message: `🔀 Check: ${condition} ${operator} ${
+        compareValue ?? ""
+      } -> ${result}`,
     });
 
     // Output index 0 for True, 1 for False
@@ -1152,12 +1257,19 @@ Always respond with valid JSON. Do not include any text outside the JSON object.
     }
 
     // If no match, use last output (fallback/other)
+    // If no routes defined, use output 0 (first/default output)
     const finalOutputIndex =
-      matchedRouteIndex >= 0 ? matchedRouteIndex : routes.length;
+      matchedRouteIndex >= 0
+        ? matchedRouteIndex
+        : routes.length > 0
+        ? routes.length
+        : 0;
 
     const routeLabel =
       finalOutputIndex < routes.length
         ? routes[finalOutputIndex].label
+        : routes.length === 0
+        ? "Default"
         : "Other";
 
     context.addLog({
@@ -1182,8 +1294,16 @@ Always respond with valid JSON. Do not include any text outside the JSON object.
       maxRetries = 3,
     } = data;
 
-    // Track retry count in context
-    const retryCount = context.retryCount || 0;
+    // Track retry count - check input first (for retry loop), then context fallback
+    // When retrying, the previous evaluator output includes retryCount
+    let retryCount = 0;
+    let actualInput = input;
+
+    // Check if this is a retry iteration (input contains retry metadata)
+    if (typeof input === "object" && input !== null && input._evaluatorRetry) {
+      retryCount = input.retryCount || 0;
+      actualInput = input.data; // The actual data to validate
+    }
 
     context.addLog({
       type: "info",
@@ -1204,7 +1324,9 @@ Always respond with valid JSON. Do not include any text outside the JSON object.
           if (schema && typeof schema === "object") {
             const requiredKeys = Object.keys(schema);
             const inputObj =
-              typeof input === "object" ? input : JSON.parse(input);
+              typeof actualInput === "object"
+                ? actualInput
+                : JSON.parse(actualInput);
 
             const missingKeys = requiredKeys.filter(
               (key) => !(key in inputObj)
@@ -1226,7 +1348,9 @@ Always respond with valid JSON. Do not include any text outside the JSON object.
           if (regexPattern) {
             const regex = new RegExp(regexPattern);
             const textToCheck =
-              typeof input === "string" ? input : JSON.stringify(input);
+              typeof actualInput === "string"
+                ? actualInput
+                : JSON.stringify(actualInput);
             isValid = regex.test(textToCheck);
 
             if (!isValid) {
@@ -1261,7 +1385,7 @@ Always respond with valid JSON. Do not include any text outside the JSON object.
 
       // Output 0 = pass
       return {
-        output: input,
+        output: actualInput,
         outputIndex: 0,
       };
     } else {
@@ -1277,7 +1401,8 @@ Always respond with valid JSON. Do not include any text outside the JSON object.
         // Output 1 = retry (goes back to generator)
         return {
           output: {
-            originalInput: input,
+            _evaluatorRetry: true,
+            data: actualInput,
             error: validationError,
             retryCount: retryCount + 1,
             feedback: `Your output was invalid: ${validationError}. Please try again.`,
@@ -1296,7 +1421,9 @@ Always respond with valid JSON. Do not include any text outside the JSON object.
         // No more retries - still output 0 but with error flag
         return {
           output: {
-            ...input,
+            ...(typeof actualInput === "object"
+              ? actualInput
+              : { value: actualInput }),
             _validationFailed: true,
             _validationError: validationError,
           },
@@ -1308,21 +1435,52 @@ Always respond with valid JSON. Do not include any text outside the JSON object.
 
   // Loops - supports both count-based (iterations) and array-based (itemsPath) looping
   loop: async (data, input, context) => {
-    const { iterations = 1 } = data;
+    // Validate and clamp iterations to positive integer
+    const rawIterations = parseInt(data.iterations, 10) || 1;
+    const iterations = Math.max(1, Math.min(rawIterations, 10000));
+    const { itemsPath = "", maxIterations = 100 } = data;
 
     // Initialize or get current loop state from context
-    const loopState = context.loopState || {
-      currentIteration: 0,
-      totalIterations: iterations,
-      results: [],
-    };
+    let loopState = context.loopState;
 
-    // Check if this is a continuation (loop-back)
+    // Determine if this is array-based or count-based looping
+    let items = null;
+    let totalIterations = iterations;
+
+    if (itemsPath) {
+      // Array-based looping - extract items from input
+      items = getNestedValue(input, itemsPath);
+      if (Array.isArray(items)) {
+        totalIterations = Math.min(items.length, maxIterations);
+      } else if (items !== undefined) {
+        // Single item, treat as array of one
+        items = [items];
+        totalIterations = 1;
+      } else {
+        // Path not found, treat as empty
+        items = [];
+        totalIterations = 0;
+      }
+    }
+
+    // Initialize loop state on first run
+    if (!loopState) {
+      loopState = {
+        currentIteration: 0,
+        totalIterations: totalIterations,
+        items: items,
+        results: [],
+        isArrayLoop: !!itemsPath && items !== null,
+      };
+    }
+
+    // Check if this is a continuation (loop-back) with result from previous iteration
     const isLoopBack = loopState.currentIteration > 0;
-
-    // Collect result from previous iteration
-    if (isLoopBack && input) {
-      loopState.results.push(input);
+    if (isLoopBack && input !== undefined) {
+      // Don't push the original input, push the result from the loop body
+      if (!input.isLoopIteration) {
+        loopState.results.push(input);
+      }
     }
 
     // Increment iteration counter
@@ -1333,11 +1491,19 @@ Always respond with valid JSON. Do not include any text outside the JSON object.
       loopState.currentIteration <= loopState.totalIterations;
 
     if (shouldContinue) {
+      // Determine current item for array-based loops
+      const currentItem =
+        loopState.isArrayLoop && loopState.items
+          ? loopState.items[loopState.currentIteration - 1]
+          : null;
+
       context.addLog({
         type: "info",
         nodeId: context.nodeId,
         nodeName: data.label || "Loop",
-        message: `🔄 Iteration ${loopState.currentIteration} of ${loopState.totalIterations}`,
+        message: loopState.isArrayLoop
+          ? `🔄 Processing item ${loopState.currentIteration} of ${loopState.totalIterations}`
+          : `🔄 Iteration ${loopState.currentIteration} of ${loopState.totalIterations}`,
       });
 
       // Output via "loop →" (output index 0) to continue iteration
@@ -1345,8 +1511,13 @@ Always respond with valid JSON. Do not include any text outside the JSON object.
         output: {
           iteration: loopState.currentIteration,
           totalIterations: loopState.totalIterations,
-          previousResult: input,
+          // For array loops, provide the current item
+          item: currentItem,
+          itemIndex: loopState.currentIteration - 1,
+          // For count loops, provide previous result
+          previousResult: isLoopBack ? input : null,
           isLoopIteration: true,
+          isArrayLoop: loopState.isArrayLoop,
         },
         outputIndex: 0, // "loop →" output
         loopState,
@@ -1357,15 +1528,16 @@ Always respond with valid JSON. Do not include any text outside the JSON object.
         type: "success",
         nodeId: context.nodeId,
         nodeName: data.label || "Loop",
-        message: `✅ Loop complete: ${loopState.results.length} iterations processed`,
+        message: `✅ Loop complete: ${loopState.results.length} iteration(s) processed`,
       });
 
       return {
         output: {
           results: loopState.results,
           totalIterations: loopState.totalIterations,
-          lastResult: input,
+          lastResult: loopState.results[loopState.results.length - 1],
           completed: true,
+          isArrayLoop: loopState.isArrayLoop,
         },
         outputIndex: 1, // "done ✓" output
         loopState: null, // Clear loop state
@@ -1449,9 +1621,27 @@ Always respond with valid JSON. Do not include any text outside the JSON object.
           message: `💾 Memorized ${result.added} new items, updated ${result.updated}`,
         });
       } else if (mode === "query") {
-        // Query text comes from input
-        const queryText =
-          typeof input === "string" ? input : JSON.stringify(input);
+        // Query text comes from input - extract from common text fields
+        let queryText;
+        if (typeof input === "string") {
+          queryText = input;
+        } else if (typeof input === "object" && input !== null) {
+          // Try common text fields first
+          queryText =
+            input.text ||
+            input.query ||
+            input.content ||
+            input.message ||
+            input.prompt;
+          if (!queryText) {
+            // Fall back to stringifying, but only the data portion
+            queryText = input.data
+              ? JSON.stringify(input.data)
+              : JSON.stringify(input);
+          }
+        } else {
+          queryText = String(input);
+        }
 
         result = await vectorMemoryService.query(
           namespace,
@@ -1523,16 +1713,7 @@ Always respond with valid JSON. Do not include any text outside the JSON object.
 
     switch (outputType) {
       case "console":
-        console.log("📤 Workflow Output:", outputData);
-        // Also log preview in execution panel
-        context.addLog({
-          type: "info",
-          nodeId: context.nodeId,
-          nodeName: data.label || "Output",
-          message: `Console: ${String(outputData).slice(0, 150)}${
-            String(outputData).length > 150 ? "..." : ""
-          }`,
-        });
+        // Output logged via context.addLog above
         break;
 
       case "file": {
@@ -1589,11 +1770,11 @@ Always respond with valid JSON. Do not include any text outside the JSON object.
             permission = await Notification.requestPermission();
           }
           if (permission === "granted") {
+            const bodyText =
+              typeof outputData === "string" ? outputData : "Data ready";
+            const truncated = bodyText.length > 200;
             new Notification(notificationTitle || "Workflow Complete", {
-              body:
-                typeof outputData === "string"
-                  ? outputData.slice(0, 200)
-                  : "Data ready",
+              body: truncated ? bodyText.slice(0, 197) + "..." : bodyText,
             });
           }
         }
@@ -1632,78 +1813,255 @@ Always respond with valid JSON. Do not include any text outside the JSON object.
         break;
 
       default:
-        console.log("📤 Output:", outputData);
+      // Default output handled via logs
     }
 
-    // Use user-selected artifact type if not "auto", otherwise detect
-    let finalMimeType;
-    let finalExtension;
-    let artifactData;
+    // Only create artifact if outputType is "artifact"
+    if (outputType === "artifact") {
+      // Skip empty artifacts - don't save {} or null/undefined
+      // But check for audioBlob first since Blob objects have no enumerable keys
+      const hasAudioBlob =
+        typeof input === "object" &&
+        input !== null &&
+        input.audioBlob instanceof Blob;
 
-    if (artifactType && artifactType !== "auto") {
-      // User explicitly selected a type
-      finalMimeType = artifactType;
-      finalExtension = getExtensionFromMime(artifactType);
+      const isEmptyInput =
+        !hasAudioBlob &&
+        (input === null ||
+          input === undefined ||
+          (typeof input === "object" && Object.keys(input).length === 0));
 
-      // Prepare data based on selected type
-      if (input instanceof Blob) {
-        artifactData = input;
-      } else if (typeof input === "object" && input !== null) {
-        // For structured data, convert to appropriate format
-        if (artifactType === "application/json") {
-          artifactData = JSON.stringify(input, null, 2);
-        } else if (artifactType === "text/csv") {
-          // Simple CSV conversion for arrays of objects
-          if (
-            Array.isArray(input) &&
-            input.length > 0 &&
-            typeof input[0] === "object"
+      if (isEmptyInput) {
+        context.addLog({
+          type: "warning",
+          nodeId: context.nodeId,
+          nodeName: data.label || "Output",
+          message: `⚠️ Skipping empty artifact - no data to save`,
+        });
+        context.updateNodeData?.({ lastOutput: null });
+        return { output: null };
+      }
+
+      // Special handling for mespeak audio output (has actual audioBlob)
+      if (hasAudioBlob) {
+        const audioFilename =
+          artifactName || filename || `audio_${Date.now()}.wav`;
+        const artifact = await createArtifact(
+          context,
+          audioFilename.endsWith(".wav")
+            ? audioFilename
+            : `${audioFilename}.wav`,
+          "audio/wav",
+          input.audioBlob
+        );
+
+        context.addLog({
+          type: "success",
+          nodeId: context.nodeId,
+          nodeName: data.label || "Output",
+          message: `🔊 Audio artifact saved: ${audioFilename}`,
+        });
+
+        context.updateNodeData?.({ lastOutput: outputData });
+        return {
+          output: outputData,
+          artifact: artifact
+            ? {
+                id: artifact.id,
+                name: artifact.name,
+                type: artifact.type,
+              }
+            : null,
+        };
+      }
+
+      // Special handling for TTS/speech metadata (Web Speech API output)
+      // These can't be exported as real audio, so save as speech metadata
+      const isSpeechMetadata =
+        typeof input === "object" &&
+        input !== null &&
+        (input.type === "audio" || input.type === "speech") &&
+        input.mimeType?.includes("speech") &&
+        input._executed === true;
+
+      if (isSpeechMetadata) {
+        // Save as speech metadata artifact that can be replayed
+        const speechFilename =
+          artifactName || `speech_${Date.now()}.speech.json`;
+        const speechData = JSON.stringify(input, null, 2);
+
+        const artifact = await createArtifact(
+          context,
+          speechFilename,
+          "application/x-speech+json", // Custom type for speech metadata
+          speechData
+        );
+
+        context.updateNodeData?.({ lastOutput: outputData });
+        return {
+          output: outputData,
+          artifact: artifact
+            ? {
+                id: artifact.id,
+                name: artifact.name,
+                type: artifact.type,
+              }
+            : null,
+        };
+      }
+
+      // Use user-selected artifact type if not "auto", otherwise detect
+      let finalMimeType;
+      let finalExtension;
+      let artifactData;
+
+      if (artifactType && artifactType !== "auto") {
+        // User explicitly selected a type
+        finalMimeType = artifactType;
+        finalExtension = getExtensionFromMime(artifactType);
+
+        // Prepare data based on selected type - improved binary detection
+        if (input instanceof Blob) {
+          artifactData = input;
+        } else if (input instanceof ArrayBuffer) {
+          artifactData = new Blob([input], { type: finalMimeType });
+        } else if (ArrayBuffer.isView(input)) {
+          // Handles Uint8Array, Int8Array, DataView, etc.
+          artifactData = new Blob([input], { type: finalMimeType });
+        } else if (typeof input === "string" && input.startsWith("data:")) {
+          // Handle data URIs - convert to Blob to prevent corruption
+          const blob = dataUriToBlob(input);
+          if (blob) {
+            artifactData = blob;
+          } else {
+            artifactData = input;
+          }
+        } else if (typeof input === "object" && input !== null) {
+          // Check for nested blob properties (from HTTP responses, audio nodes, etc.)
+          if (input.audioBlob instanceof Blob) {
+            artifactData = input.audioBlob;
+          } else if (input.imageBlob instanceof Blob) {
+            artifactData = input.imageBlob;
+          } else if (input.videoBlob instanceof Blob) {
+            artifactData = input.videoBlob;
+          } else if (input.blob instanceof Blob) {
+            artifactData = input.blob;
+          } else if (input.data instanceof Blob) {
+            artifactData = input.data;
+          } else if (input.buffer instanceof ArrayBuffer) {
+            // Check for buffer-like properties (from HTTP responses etc.)
+            artifactData = new Blob([input.buffer], { type: finalMimeType });
+          } else if (
+            typeof input.audioBase64 === "string" &&
+            finalMimeType.startsWith("audio/")
           ) {
-            const headers = Object.keys(input[0]);
-            const csv = [
-              headers.join(","),
-              ...input.map((row) =>
-                headers.map((h) => JSON.stringify(row[h] ?? "")).join(",")
-              ),
-            ].join("\n");
-            artifactData = csv;
+            // Handle base64 audio data
+            const blob = base64ToBlob(input.audioBase64, finalMimeType);
+            artifactData = blob || JSON.stringify(input, null, 2);
+          } else if (artifactType === "application/json") {
+            artifactData = JSON.stringify(input, null, 2);
+          } else if (artifactType === "text/csv") {
+            // CSV conversion for arrays of objects
+            if (
+              Array.isArray(input) &&
+              input.length > 0 &&
+              typeof input[0] === "object"
+            ) {
+              // Flatten nested objects for headers
+              const flattenRow = (obj, prefix = "") => {
+                const result = {};
+                for (const [key, value] of Object.entries(obj)) {
+                  const newKey = prefix ? `${prefix}.${key}` : key;
+                  if (
+                    typeof value === "object" &&
+                    value !== null &&
+                    !Array.isArray(value)
+                  ) {
+                    Object.assign(result, flattenRow(value, newKey));
+                  } else {
+                    result[newKey] = value;
+                  }
+                }
+                return result;
+              };
+              const flatData = input.map((row) => flattenRow(row));
+              const headers = [
+                ...new Set(flatData.flatMap((row) => Object.keys(row))),
+              ];
+              const csv = [
+                headers.join(","),
+                ...flatData.map((row) =>
+                  headers.map((h) => JSON.stringify(row[h] ?? "")).join(",")
+                ),
+              ].join("\n");
+              artifactData = csv;
+            } else {
+              artifactData = JSON.stringify(input, null, 2);
+            }
+          } else if (
+            finalMimeType.startsWith("audio/") ||
+            finalMimeType.startsWith("image/") ||
+            finalMimeType.startsWith("video/")
+          ) {
+            // For media types, warn but still try to save what we have
+            context.addLog({
+              type: "warning",
+              nodeId: context.nodeId,
+              nodeName: data.label || "Output",
+              message: `⚠️ Expected binary data for ${finalMimeType}, got object. Saving as JSON instead.`,
+            });
+            artifactData = JSON.stringify(input, null, 2);
           } else {
             artifactData = JSON.stringify(input, null, 2);
           }
         } else {
-          artifactData = JSON.stringify(input, null, 2);
+          artifactData = String(input);
         }
       } else {
-        artifactData = String(input);
+        // Auto-detect content type
+        const contentInfo = detectContentType(input);
+        finalMimeType = contentInfo.mimeType;
+        finalExtension = contentInfo.extension;
+        artifactData = contentInfo.data;
       }
-    } else {
-      // Auto-detect content type
-      const contentInfo = detectContentType(input);
-      finalMimeType = contentInfo.mimeType;
-      finalExtension = contentInfo.extension;
-      artifactData = contentInfo.data;
+
+      // Determine filename
+      let artifactFilename = artifactName || filename;
+      if (!artifactFilename) {
+        const baseName = `output_${Date.now()}`;
+        artifactFilename = baseName + finalExtension;
+      } else if (!artifactFilename.includes(".")) {
+        // Add extension if filename has no extension
+        artifactFilename += finalExtension;
+      } else if (artifactType && artifactType !== "auto") {
+        // Replace existing extension with selected type's extension
+        artifactFilename = artifactFilename.replace(/\.[^.]+$/, finalExtension);
+      }
+
+      const artifact = await createArtifact(
+        context,
+        artifactFilename,
+        finalMimeType,
+        artifactData
+      );
+
+      // Return artifact info so downstream nodes can access it
+      // Update node data for UI preview
+      context.updateNodeData?.({ lastOutput: outputData });
+      return {
+        output: outputData,
+        artifact: artifact
+          ? {
+              id: artifact.id,
+              name: artifact.name,
+              type: artifact.type,
+            }
+          : null,
+      };
     }
 
-    // Determine filename
-    let artifactFilename = artifactName || filename;
-    if (!artifactFilename) {
-      const baseName = `output_${Date.now()}`;
-      artifactFilename = baseName + finalExtension;
-    } else if (!artifactFilename.includes(".")) {
-      // Add extension if filename has no extension
-      artifactFilename += finalExtension;
-    } else if (artifactType && artifactType !== "auto") {
-      // Replace existing extension with selected type's extension
-      artifactFilename = artifactFilename.replace(/\.[^.]+$/, finalExtension);
-    }
-
-    await createArtifact(
-      context,
-      artifactFilename,
-      finalMimeType,
-      artifactData
-    );
-
+    // Update node data for UI preview
+    context.updateNodeData?.({ lastOutput: outputData });
     return { output: outputData };
   },
 
@@ -2094,39 +2452,313 @@ Always respond with valid JSON. Do not include any text outside the JSON object.
 
   // Sub-Workflow - execute another workflow
   subWorkflow: async (data, input, context) => {
-    const { workflowId, passInput = true } = data;
+    const { workflowId, workflowName, passInput = true } = data;
 
     context.addLog({
       type: "info",
       nodeId: context.nodeId,
       nodeName: data.label || "Sub-Workflow",
-      message: `🔀 Executing sub-workflow: ${workflowId || "none selected"}`,
+      message: `🔀 Executing sub-workflow: ${
+        workflowName || workflowId || "none selected"
+      }`,
     });
 
     if (!workflowId) {
-      return { output: { error: "No workflow selected" } };
+      context.addLog({
+        type: "error",
+        nodeId: context.nodeId,
+        nodeName: data.label || "Sub-Workflow",
+        message: `❌ No workflow selected`,
+      });
+      return { output: { error: "No workflow selected", success: false } };
     }
 
-    // In a real implementation, this would load and execute the sub-workflow
-    // For now, return a placeholder
+    try {
+      // Load workflow from localStorage (where WorkflowManager saves them)
+      const savedWorkflows = localStorage.getItem("iosans-workflows");
+      if (!savedWorkflows) {
+        throw new Error("No workflows found in storage");
+      }
+
+      const workflows = JSON.parse(savedWorkflows);
+      const subWorkflow = workflows.find(
+        (w) => w.id === workflowId || w.name === workflowId
+      );
+
+      if (!subWorkflow) {
+        throw new Error(`Workflow "${workflowId}" not found`);
+      }
+
+      const { nodes: subNodes, edges: subEdges } = subWorkflow;
+
+      if (!subNodes || subNodes.length === 0) {
+        throw new Error("Sub-workflow has no nodes");
+      }
+
+      context.addLog({
+        type: "info",
+        nodeId: context.nodeId,
+        nodeName: data.label || "Sub-Workflow",
+        message: `📋 Loaded workflow "${subWorkflow.name}" with ${subNodes.length} nodes`,
+      });
+
+      // Find trigger node(s) in the sub-workflow
+      const triggerTypes = [
+        "manualTrigger",
+        "webhookTrigger",
+        "scheduleTrigger",
+        "browserEventTrigger",
+      ];
+      const triggerNode = subNodes.find((n) => triggerTypes.includes(n.type));
+
+      if (!triggerNode) {
+        throw new Error("Sub-workflow has no trigger node");
+      }
+
+      // Execute the sub-workflow using a simplified inline execution
+      const startTime = Date.now();
+      const results = {};
+      const visited = new Set();
+
+      // Simple BFS execution (synchronous for now)
+      const queue = [{ nodeId: triggerNode.id, input: passInput ? input : {} }];
+
+      while (queue.length > 0) {
+        const { nodeId: currentId, input: nodeInput } = queue.shift();
+
+        if (visited.has(currentId)) continue;
+        visited.add(currentId);
+
+        const node = subNodes.find((n) => n.id === currentId);
+        if (!node) continue;
+
+        // Skip re-executing triggers, just pass input through
+        let nodeOutput = nodeInput;
+
+        if (!triggerTypes.includes(node.type)) {
+          // Get the executor for this node type
+          const executor = NodeExecutors[node.type];
+          if (executor) {
+            try {
+              const subContext = {
+                ...context,
+                nodeId: `${context.nodeId}:${currentId}`,
+                addLog: (log) => {
+                  context.addLog({
+                    ...log,
+                    message: `[Sub] ${log.message}`,
+                  });
+                },
+              };
+
+              const result = await executor(node.data, nodeInput, subContext);
+              nodeOutput = result.output ?? result;
+              results[currentId] = nodeOutput;
+            } catch (err) {
+              context.addLog({
+                type: "error",
+                nodeId: context.nodeId,
+                nodeName: data.label || "Sub-Workflow",
+                message: `❌ Sub-node ${node.type} failed: ${err.message}`,
+              });
+              // Continue execution despite error
+            }
+          }
+        } else {
+          results[currentId] = nodeInput;
+        }
+
+        // Find connected nodes and add to queue
+        const outEdges = subEdges.filter((e) => e.source === currentId);
+        for (const edge of outEdges) {
+          queue.push({ nodeId: edge.target, input: nodeOutput });
+        }
+      }
+
+      const duration = Date.now() - startTime;
+
+      context.addLog({
+        type: "success",
+        nodeId: context.nodeId,
+        nodeName: data.label || "Sub-Workflow",
+        message: `✅ Sub-workflow completed in ${duration}ms (${visited.size} nodes executed)`,
+      });
+
+      // Return the last result or aggregated results
+      const lastNodeId = Array.from(visited).pop();
+      const finalOutput = results[lastNodeId] || {};
+
+      return {
+        output: {
+          subWorkflowId: workflowId,
+          subWorkflowName: subWorkflow.name,
+          result: finalOutput,
+          allResults: results,
+          nodesExecuted: visited.size,
+          duration,
+          success: true,
+        },
+      };
+    } catch (error) {
+      context.addLog({
+        type: "error",
+        nodeId: context.nodeId,
+        nodeName: data.label || "Sub-Workflow",
+        message: `❌ Sub-workflow failed: ${error.message}`,
+      });
+
+      return {
+        output: {
+          subWorkflowId: workflowId,
+          error: error.message,
+          success: false,
+        },
+      };
+    }
+  },
+
+  // Swarm - parallel multi-agent execution with consensus/aggregation
+  swarm: async (data, input, context) => {
+    const {
+      agentCount = 3,
+      aggregationMode = "consensus", // consensus, first, all
+      timeout = 30000,
+      systemPrompt = "",
+    } = data;
+
     context.addLog({
-      type: "warning",
+      type: "info",
       nodeId: context.nodeId,
-      nodeName: data.label || "Sub-Workflow",
-      message: `⚠️ Sub-workflow execution not yet implemented`,
+      nodeName: data.label || "Swarm",
+      message: `🐝 Starting swarm with ${agentCount} agents (mode: ${aggregationMode})`,
     });
+
+    // Get the input text to process
+    const inputText =
+      typeof input === "string"
+        ? input
+        : input?.text ||
+          input?.content ||
+          input?.message ||
+          JSON.stringify(input);
+
+    // Create parallel agent tasks
+    const agentPromises = [];
+    const startTime = Date.now();
+
+    for (let i = 0; i < agentCount; i++) {
+      const agentPromise = (async () => {
+        try {
+          // Each agent uses slightly varied prompting
+          const variance =
+            i > 0 ? `\n[Agent ${i + 1}: Provide a unique perspective]` : "";
+          const fullPrompt = systemPrompt + variance;
+
+          const response = await webLLMService.generate(
+            inputText,
+            fullPrompt || "You are a helpful assistant. Answer concisely.",
+            { maxTokens: 500 }
+          );
+
+          return {
+            agentId: i + 1,
+            response: response?.text || response,
+            success: true,
+          };
+        } catch (err) {
+          return {
+            agentId: i + 1,
+            error: err.message,
+            success: false,
+          };
+        }
+      })();
+
+      agentPromises.push(agentPromise);
+    }
+
+    // Race against timeout
+    const timeoutPromise = new Promise((resolve) =>
+      setTimeout(() => resolve({ timeout: true }), timeout)
+    );
+
+    let results;
+
+    if (aggregationMode === "first") {
+      // Return first successful result
+      const firstResult = await Promise.race([
+        Promise.any(
+          agentPromises.map((p) =>
+            p.then((r) => (r.success ? r : Promise.reject(r)))
+          )
+        ),
+        timeoutPromise,
+      ]);
+
+      if (firstResult.timeout) {
+        throw new Error("Swarm timed out");
+      }
+
+      results = [firstResult];
+    } else {
+      // Wait for all results
+      const allSettled = await Promise.race([
+        Promise.allSettled(agentPromises),
+        timeoutPromise,
+      ]);
+
+      if (allSettled.timeout) {
+        throw new Error("Swarm timed out");
+      }
+
+      results = allSettled.map(
+        (r) => r.value || { error: r.reason?.message, success: false }
+      );
+    }
+
+    const successfulResults = results.filter((r) => r.success);
+    const duration = Date.now() - startTime;
+
+    context.addLog({
+      type: "success",
+      nodeId: context.nodeId,
+      nodeName: data.label || "Swarm",
+      message: `✅ Swarm completed: ${successfulResults.length}/${agentCount} successful in ${duration}ms`,
+    });
+
+    // Aggregate results based on mode
+    let finalOutput;
+
+    if (aggregationMode === "consensus" && successfulResults.length > 1) {
+      // Simple consensus: take the most common response length bracket
+      // (A proper implementation would use semantic similarity)
+      const responses = successfulResults.map((r) => r.response);
+
+      // For now, just take the median-length response as "consensus"
+      responses.sort((a, b) => a.length - b.length);
+      const medianIndex = Math.floor(responses.length / 2);
+      finalOutput = responses[medianIndex];
+    } else if (aggregationMode === "all") {
+      finalOutput = results;
+    } else {
+      // first or fallback
+      finalOutput =
+        successfulResults[0]?.response || results[0]?.error || "No results";
+    }
 
     return {
       output: {
-        subWorkflowId: workflowId,
-        result: passInput ? input : {},
-        duration: 0,
-        note: "Sub-workflow execution coming soon",
+        result: finalOutput,
+        allResponses: results,
+        successCount: successfulResults.length,
+        totalAgents: agentCount,
+        aggregationMode,
+        duration,
       },
     };
   },
 
-  // Text to Speech - generates audio artifact
+  // Text to Speech - generates audio using selected provider
   textToSpeech: async (data, input, context) => {
     // Input can come from:
     // 1. Workflow data (piped input string)
@@ -2148,94 +2780,136 @@ Always respond with valid JSON. Do not include any text outside the JSON object.
       throw new Error("No text provided for speech synthesis");
     }
 
+    const provider = data.provider || "mespeak";
+
     context.addLog({
       type: "info",
       nodeId: context.nodeId,
       nodeName: data.label || "Text to Speech",
-      message: `🔊 Generating audio for: "${resolvedText.substring(0, 50)}${
-        resolvedText.length > 50 ? "..." : ""
-      }"`,
+      message: `🔊 Generating audio (${provider}): "${resolvedText.substring(
+        0,
+        50
+      )}${resolvedText.length > 50 ? "..." : ""}"`,
     });
 
-    // Check for Web Speech API support
-    if (!("speechSynthesis" in window)) {
-      throw new Error("Web Speech API not supported in this browser");
-    }
+    // Route to selected provider
+    if (provider === "mespeak") {
+      // Use mespeak for WAV audio file generation
+      const speed = data.speed || 175; // words per minute for mespeak
+      const pitch = data.pitch || 50; // 0-99 for mespeak
 
-    const voice = data.voice || "default";
-    const speed = data.speed || 1.0;
-    const pitch = data.pitch || 1.0;
+      try {
+        const result = await mespeakService.textToAudio(resolvedText, {
+          speed: speed,
+          pitch: pitch,
+          amplitude: 100,
+        });
 
-    // Create speech utterance
-    const utterance = new SpeechSynthesisUtterance(resolvedText);
-    utterance.rate = speed;
-    utterance.pitch = pitch;
+        context.addLog({
+          type: "success",
+          nodeId: context.nodeId,
+          nodeName: data.label || "Text to Speech",
+          message: `✅ Audio generated (${result.duration.toFixed(1)}s WAV)`,
+        });
 
-    // Find voice if specified
-    if (voice !== "default") {
-      const voices = window.speechSynthesis.getVoices();
-      const selectedVoice = voices.find((v) =>
-        v.name.toLowerCase().includes(voice.toLowerCase())
-      );
-      if (selectedVoice) {
-        utterance.voice = selectedVoice;
+        // Auto-play if enabled
+        if (data.autoPlay === true) {
+          const audioUrl = URL.createObjectURL(result.blob);
+          const audio = new Audio(audioUrl);
+          audio.play().catch((err) => {
+            console.warn("Could not auto-play audio:", err);
+          });
+          audio.onended = () => URL.revokeObjectURL(audioUrl);
+        }
+
+        // Return the actual audio blob
+        return {
+          output: {
+            audioBlob: result.blob,
+            type: "audio",
+            mimeType: "audio/wav",
+            text: resolvedText,
+            duration: result.duration,
+            provider: "mespeak",
+            _executed: true,
+          },
+        };
+      } catch (error) {
+        context.addLog({
+          type: "error",
+          nodeId: context.nodeId,
+          nodeName: data.label || "Text to Speech",
+          message: `❌ Mespeak failed: ${error.message}`,
+        });
+        throw error;
       }
+    } else {
+      // Use Web Speech API (browser only, no file export)
+      if (!("speechSynthesis" in window)) {
+        throw new Error("Web Speech API not supported in this browser");
+      }
+
+      const voice = data.voice || "default";
+      const speed = data.speed || 1.0;
+      const pitch = data.pitch || 1.0;
+
+      const utterance = new SpeechSynthesisUtterance(resolvedText);
+      utterance.rate = speed;
+      utterance.pitch = pitch;
+
+      // Find voice if specified
+      if (voice !== "default") {
+        let voices = window.speechSynthesis.getVoices();
+        if (voices.length === 0) {
+          await new Promise((resolve) => {
+            const handler = () => {
+              window.speechSynthesis.removeEventListener(
+                "voiceschanged",
+                handler
+              );
+              resolve();
+            };
+            window.speechSynthesis.addEventListener("voiceschanged", handler);
+            setTimeout(resolve, 1000);
+          });
+          voices = window.speechSynthesis.getVoices();
+        }
+        const selectedVoice = voices.find((v) =>
+          v.name.toLowerCase().includes(voice.toLowerCase())
+        );
+        if (selectedVoice) {
+          utterance.voice = selectedVoice;
+        }
+      }
+
+      await new Promise((resolve, reject) => {
+        utterance.onend = resolve;
+        utterance.onerror = (e) =>
+          reject(new Error(`Speech failed: ${e.error}`));
+        window.speechSynthesis.speak(utterance);
+      });
+
+      context.addLog({
+        type: "success",
+        nodeId: context.nodeId,
+        nodeName: data.label || "Text to Speech",
+        message: `✅ Audio played (Web Speech API)`,
+      });
+
+      // Return metadata (no audio file available with Web Speech API)
+      return {
+        output: {
+          type: "audio",
+          mimeType: "audio/speech",
+          text: resolvedText,
+          voice: voice,
+          speed: speed,
+          pitch: pitch,
+          provider: "webSpeech",
+          _executed: true,
+        },
+      };
     }
-
-    // Generate unique artifact ID
-    const artifactId = `tts_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
-
-    // Since Web Speech API cannot directly capture audio as a Blob,
-    // we create a structured artifact reference that the Output node can use
-    // to trigger playback via the Speech API
-
-    // Save artifact metadata for playback
-    const artifactData = {
-      type: "speech",
-      text: resolvedText,
-      voice: voice,
-      speed: speed,
-      pitch: pitch,
-      mimeType: "audio/speech",
-      canPlay: true,
-    };
-
-    await createArtifact(
-      context,
-      `${artifactId}.speech.json`,
-      "application/json",
-      JSON.stringify(artifactData, null, 2)
-    );
-
-    // Actually speak the text (this is the action)
-    await new Promise((resolve, reject) => {
-      utterance.onend = resolve;
-      utterance.onerror = (e) => reject(new Error(`Speech failed: ${e.error}`));
-      window.speechSynthesis.speak(utterance);
-    });
-
-    context.addLog({
-      type: "success",
-      nodeId: context.nodeId,
-      nodeName: data.label || "Text to Speech",
-      message: `✅ Audio played successfully`,
-    });
-
-    // Return artifact-first structure
-    return {
-      output: {
-        artifactId: artifactId,
-        type: "audio",
-        mimeType: "audio/speech",
-        text: resolvedText,
-        voice: voice,
-        speed: speed,
-        pitch: pitch,
-        played: true,
-        // Mark as executed (not simulated)
-        _executed: true,
-      },
-    };
   },
 
   // Python Executor - run Python code via Pyodide
@@ -2367,7 +3041,7 @@ result if 'result' in dir() else None
         nodeName: data.label || "Python",
         message: `❌ Python error: ${error.message}`,
       });
-      return { output: { error: error.message } };
+      throw new Error(`Python execution failed: ${error.message}`);
     }
   },
 };

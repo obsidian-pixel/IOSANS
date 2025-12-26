@@ -1,36 +1,86 @@
 /**
  * VectorMemoryService
  * Service for managing local vector memory.
- * Uses localStorage for persistence and simple text similarity (Jaccard) for search
+ * Uses IndexedDB for persistence and simple text similarity (Jaccard) for search
  * since we don't have a local embedding model loaded by default.
  */
+
+const DB_NAME = "EchoesVectorMemoryDB";
+const STORE_NAME = "memories";
+const DB_VERSION = 1;
+
 class VectorMemoryService {
   constructor() {
-    this.storagePrefix = "echoes_memory_";
+    this.dbPromise = null;
   }
 
-  // Get namespace key
-  _getKey(namespace) {
-    return `${this.storagePrefix}${namespace}`;
+  // Initialize/open the database
+  async _openDB() {
+    if (this.dbPromise) return this.dbPromise;
+
+    this.dbPromise = new Promise((resolve, reject) => {
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result);
+
+      request.onupgradeneeded = (event) => {
+        const db = event.target.result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          const store = db.createObjectStore(STORE_NAME, {
+            keyPath: "namespace",
+          });
+          store.createIndex("namespace", "namespace", { unique: true });
+        }
+      };
+    });
+
+    return this.dbPromise;
   }
 
-  // Load namespace data
-  _load(namespace) {
+  // Load namespace data from IndexedDB
+  async _load(namespace) {
     try {
-      const data = localStorage.getItem(this._getKey(namespace));
-      return data ? JSON.parse(data) : [];
+      const db = await this._openDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction([STORE_NAME], "readonly");
+        const store = tx.objectStore(STORE_NAME);
+        const request = store.get(namespace);
+
+        request.onsuccess = () => {
+          const result = request.result;
+          resolve(result?.items || []);
+        };
+        request.onerror = () => reject(request.error);
+      });
     } catch (err) {
       console.error("Memory load error:", err);
-      return [];
+      // Fallback to localStorage for migration
+      const oldData = localStorage.getItem(`echoes_memory_${namespace}`);
+      return oldData ? JSON.parse(oldData) : [];
     }
   }
 
-  // Save namespace data
-  _save(namespace, data) {
+  // Save namespace data to IndexedDB
+  async _save(namespace, data) {
     try {
-      localStorage.setItem(this._getKey(namespace), JSON.stringify(data));
+      const db = await this._openDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction([STORE_NAME], "readwrite");
+        const store = tx.objectStore(STORE_NAME);
+        const request = store.put({
+          namespace,
+          items: data,
+          updatedAt: Date.now(),
+        });
+
+        request.onsuccess = () => resolve(true);
+        request.onerror = () => reject(request.error);
+      });
     } catch (err) {
       console.error("Memory save error:", err);
+      // Fallback to localStorage
+      localStorage.setItem(`echoes_memory_${namespace}`, JSON.stringify(data));
     }
   }
 
@@ -65,7 +115,7 @@ class VectorMemoryService {
    * @param {Array<Object>} items - Items to store. Each should have { id, text, metadata }
    */
   async upsert(namespace = "default", items) {
-    const current = this._load(namespace);
+    const current = await this._load(namespace);
     const timestamp = Date.now();
 
     // Convert single item to array
@@ -99,7 +149,7 @@ class VectorMemoryService {
       }
     });
 
-    this._save(namespace, current);
+    await this._save(namespace, current);
 
     return {
       status: "success",
@@ -117,7 +167,7 @@ class VectorMemoryService {
    * @param {number} minScore - Minimum similarity score (0-1)
    */
   async query(namespace = "default", queryText, topK = 5, minScore = 0.1) {
-    const current = this._load(namespace);
+    const current = await this._load(namespace);
 
     const results = current
       .map((item) => {
@@ -142,17 +192,17 @@ class VectorMemoryService {
    */
   async delete(namespace = "default", ids = [], deleteAll = false) {
     if (deleteAll) {
-      localStorage.removeItem(this._getKey(namespace));
+      await this._save(namespace, []);
       return { status: "success", deleted: "all" };
     }
 
-    const current = this._load(namespace);
+    const current = await this._load(namespace);
     const initialCount = current.length;
 
     const idsToDelete = new Set(Array.isArray(ids) ? ids : [ids]);
     const filtered = current.filter((item) => !idsToDelete.has(item.id));
 
-    this._save(namespace, filtered);
+    await this._save(namespace, filtered);
 
     return {
       status: "success",
@@ -160,6 +210,32 @@ class VectorMemoryService {
       remaining: filtered.length,
     };
   }
+
+  /**
+   * Migrate existing localStorage data to IndexedDB
+   */
+  async migrateFromLocalStorage() {
+    const keys = Object.keys(localStorage).filter((k) =>
+      k.startsWith("echoes_memory_")
+    );
+
+    for (const key of keys) {
+      const namespace = key.replace("echoes_memory_", "");
+      const data = localStorage.getItem(key);
+      if (data) {
+        try {
+          const items = JSON.parse(data);
+          await this._save(namespace, items);
+          localStorage.removeItem(key); // Clean up after migration
+        } catch {
+          // Silent - migration errors are non-critical
+        }
+      }
+    }
+  }
 }
 
 export const vectorMemoryService = new VectorMemoryService();
+
+// Auto-migrate on load
+vectorMemoryService.migrateFromLocalStorage().catch(console.error);

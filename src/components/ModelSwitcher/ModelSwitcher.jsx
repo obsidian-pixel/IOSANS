@@ -55,10 +55,8 @@ function ModelSwitcher({ isOpen, onClose }) {
       const store = useModelStore.getState();
       const updated = store.downloadedModels.filter((id) => id !== modelId);
       useModelStore.setState({ downloadedModels: updated });
-
-      console.log(`Removed model: ${modelId}`);
-    } catch (error) {
-      console.error("Failed to remove model:", error);
+    } catch {
+      // Silent failure - user can retry
     }
   };
 
@@ -95,10 +93,8 @@ function ModelSwitcher({ isOpen, onClose }) {
       });
 
       localStorage.removeItem("selectedModel");
-      console.log("All model caches cleared");
       alert("All models removed. Refresh the page to start fresh.");
-    } catch (error) {
-      console.error("Failed to clear cache:", error);
+    } catch {
       alert("Failed to clear some caches. Try clearing browser data manually.");
     }
   };

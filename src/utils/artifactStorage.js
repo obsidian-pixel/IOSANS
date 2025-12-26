@@ -135,3 +135,34 @@ export const clearArtifacts = async () => {
     request.onerror = (event) => reject(event.target.error);
   });
 };
+
+/**
+ * Delete multiple artifacts by IDs (batch delete)
+ * @param {string[]} ids - Array of artifact IDs to delete
+ */
+export const deleteArtifacts = async (ids) => {
+  if (!ids || ids.length === 0) return true;
+
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([STORE_NAME], "readwrite");
+    const store = transaction.objectStore(STORE_NAME);
+
+    let completed = 0;
+    let hasError = false;
+
+    for (const id of ids) {
+      const request = store.delete(id);
+      request.onsuccess = () => {
+        completed++;
+        if (completed === ids.length && !hasError) {
+          resolve(true);
+        }
+      };
+      request.onerror = (event) => {
+        hasError = true;
+        reject(event.target.error);
+      };
+    }
+  });
+};

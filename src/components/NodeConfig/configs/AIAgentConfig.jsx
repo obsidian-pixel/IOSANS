@@ -117,6 +117,40 @@ function AIAgentConfig({ data, onUpdate }) {
       </div>
 
       <div className="config-section">
+        <div className="config-section-title">Input Handling</div>
+
+        <div className="config-field">
+          <label>Input Format</label>
+          <select
+            value={data.inputFormat || "auto"}
+            onChange={(e) => onUpdate({ inputFormat: e.target.value })}
+          >
+            <option value="auto">🔄 Auto-detect</option>
+            <option value="text">📝 Plain Text</option>
+            <option value="json">📦 JSON Object</option>
+            <option value="conversation">💬 Conversation History</option>
+          </select>
+          <p className="hint">
+            How to interpret incoming data from previous nodes
+          </p>
+        </div>
+
+        <div className="config-field">
+          <label>User Message Template</label>
+          <textarea
+            value={data.userMessage || ""}
+            onChange={(e) => onUpdate({ userMessage: e.target.value })}
+            placeholder="Process this data: {{ $json }}"
+            style={{ minHeight: "80px" }}
+          />
+          <p className="hint">
+            Template for user message. Use {"{{ $json.field }}"} to reference
+            input data. Leave empty to use raw input.
+          </p>
+        </div>
+      </div>
+
+      <div className="config-section">
         <div className="config-section-title">Reasoning Mode</div>
 
         <div className="config-field">

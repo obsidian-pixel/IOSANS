@@ -353,6 +353,72 @@
   gap: var(--spacing-sm);
 }
 
+/* Batch action toolbar */
+.artifacts-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--bg-active);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--spacing-xs);
+}
+
+.select-all-checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: 11px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.select-all-checkbox input {
+  cursor: pointer;
+}
+
+.batch-delete-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  background: var(--color-error, #ef4444);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: white;
+  font-weight: 500;
+  transition: all var(--transition-fast);
+}
+
+.batch-delete-btn:hover {
+  background: #dc2626;
+  transform: translateY(-1px);
+}
+
+.batch-download-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  background: var(--color-action, #6366f1);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: white;
+  font-weight: 500;
+  transition: all var(--transition-fast);
+}
+
+.batch-download-btn:hover {
+  background: var(--color-action-hover, #7b7fff);
+  transform: translateY(-1px);
+}
+
+/* Artifact checkbox */
+.artifact-checkbox {
+  cursor: pointer;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
 .artifact-item {
   display: flex;
   flex-direction: column;
@@ -445,6 +511,33 @@
   border-radius: var(--radius-sm);
 }
 
+.artifact-video-player {
+  width: 100%;
+  max-height: 200px;
+  border-radius: var(--radius-sm);
+  background: #000;
+}
+
+.artifact-image-preview {
+  display: flex;
+  justify-content: center;
+  background: var(--bg-tertiary, #1a1a1f);
+  border-radius: var(--radius-sm);
+  padding: var(--spacing-sm);
+}
+
+.artifact-image {
+  max-width: 100%;
+  max-height: 200px;
+  border-radius: var(--radius-sm);
+}
+
+.preview-placeholder {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-style: italic;
+}
+
 .artifact-download-btn {
   padding: 6px 12px;
   font-size: 11px;
@@ -475,5 +568,36 @@
 
 .btn-small:hover {
   background: var(--color-action);
+  color: white;
+}
+
+/* Speech Player */
+.artifact-speech-player {
+  display: flex;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.speech-play-btn,
+.speech-stop-btn {
+  padding: 6px 12px;
+  font-size: 11px;
+  background: var(--bg-active);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--text-primary);
+  transition: all var(--transition-fast);
+}
+
+.speech-play-btn:hover {
+  background: var(--color-success);
+  border-color: var(--color-success);
+  color: white;
+}
+
+.speech-stop-btn:hover {
+  background: var(--color-error);
+  border-color: var(--color-error);
   color: white;
 }

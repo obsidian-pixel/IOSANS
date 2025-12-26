@@ -21,7 +21,7 @@ class ExecutionEngine {
    * Execute a workflow
    */
   async execute(nodes, edges, stores, initialData = {}, options = {}) {
-    const { executionStore } = stores;
+    const { executionStore, workflowStore } = stores;
     const { debug = false } = options;
 
     if (this.isRunning) {
@@ -33,12 +33,14 @@ class ExecutionEngine {
     this.debugMode = debug;
     this.abortController = new AbortController();
     this.executedNodes = new Set();
+    this.executionId = `exec_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
 
     // Store references for graph traversal
     this.nodes = nodes;
     this.edges = edges;
     this.nodeMap = new Map(nodes.map((n) => [n.id, n]));
     this.executionStore = executionStore;
+    this.workflowStore = workflowStore;
 
     executionStore.startExecution();
 
@@ -92,8 +94,14 @@ class ExecutionEngine {
    * Execute from a specific node and follow edges
    */
   async executeFromNode(nodeId, inputData, visited = new Set()) {
-    // Prevent infinite loops
-    const visitKey = `${nodeId}-${JSON.stringify(inputData).slice(0, 50)}`;
+    // Prevent infinite loops - use hash of input for more unique keys
+    const inputHash =
+      typeof inputData === "object" && inputData !== null
+        ? JSON.stringify(inputData).length +
+          "-" +
+          Object.keys(inputData).join(",")
+        : String(inputData).slice(0, 100);
+    const visitKey = `${nodeId}-${inputHash}`;
     if (visited.has(visitKey)) {
       return { success: true, output: inputData, skipped: true };
     }
@@ -250,10 +258,15 @@ class ExecutionEngine {
     // Create execution context
     const context = {
       nodeId,
+      executionId: this.executionId,
       nodes: this.nodes,
       edges: this.edges,
       executionStore: this.executionStore,
       addLog: (log) => this.executionStore.addLog({ ...log, nodeId }),
+      // For loop nodes, retrieve persisted loop state
+      loopState: (node.type === "loop" && this.loopStates?.get(nodeId)) || null,
+      // Allow nodes to update their own data (e.g., Output node to set lastOutput)
+      updateNodeData: (data) => this.workflowStore?.updateNode(nodeId, data),
     };
 
     // Get retry settings from node config
@@ -353,11 +366,12 @@ class ExecutionEngine {
 
     // Handle different execution patterns
     if (result.loopData) {
-      // Loop node - iterate through items
+      // Legacy loop node - iterate through items (kept for backwards compatibility)
       return await this.executeLoop(node, result, visited);
     } else if (result.outputIndex !== undefined) {
-      // Branching node (if/else, switch) - follow specific output
-      return await this.executeBranch(node, result, visited);
+      // Branching node (if/else, switch, loop) - follow specific output
+      // Pass loopState through for loop nodes
+      return await this.executeBranch(node, result, visited, result.loopState);
     } else {
       // Normal node - follow all connected edges
       return await this.executeNextNodes(nodeId, result.output, visited);
@@ -444,9 +458,10 @@ class ExecutionEngine {
   }
 
   /**
-   * Execute branching node (if/else, switch)
+   * Execute branching node (if/else, switch, loop)
+   * @param {Object} loopState - Optional loop state to persist across iterations
    */
-  async executeBranch(node, result, visited) {
+  async executeBranch(node, result, visited, loopState = null) {
     const { output, outputIndex } = result;
     const nodeId = node.id;
 
@@ -461,6 +476,15 @@ class ExecutionEngine {
         nodeId,
         message: `Taking branch: output ${outputIndex + 1}`,
       });
+
+      // For loop nodes, we need to pass the loopState to the target node
+      // The target node execution context will receive this state
+      if (loopState && node.type === "loop") {
+        // Store loopState in a temporary map for the loop cycle
+        if (!this.loopStates) this.loopStates = new Map();
+        this.loopStates.set(nodeId, loopState);
+      }
+
       return await this.executeFromNode(targetEdge.target, output, visited);
     }
 
@@ -484,10 +508,36 @@ class ExecutionEngine {
     // Find all edges from this node's outputs
     const outgoingEdges = this.edges.filter((e) => e.source === nodeId);
 
+    // Get source node name for logging
+    const sourceNode = this.nodeMap.get(nodeId);
+    const sourceNodeName =
+      sourceNode?.data?.label || sourceNode?.type || nodeId;
+
     if (outgoingEdges.length === 0) {
       // End of workflow branch
       return { success: true, output: outputData };
     }
+
+    // Log which edges are being followed
+    this.executionStore?.addLog?.({
+      type: "debug",
+      nodeId,
+      nodeName: sourceNodeName,
+      message: `📍 Following ${outgoingEdges.length} edge(s) from ${sourceNodeName}`,
+      data: {
+        edges: outgoingEdges.map((e) => ({
+          id: e.id,
+          target: e.target,
+          targetHandle: e.targetHandle,
+          sourceHandle: e.sourceHandle,
+        })),
+        outputDataType: typeof outputData,
+        outputDataKeys:
+          typeof outputData === "object" && outputData
+            ? Object.keys(outputData)
+            : null,
+      },
+    });
 
     // Record edge snapshots for Ghost Data debugging
     for (const edge of outgoingEdges) {
@@ -611,13 +661,15 @@ class ExecutionEngine {
     startTimer();
 
     // Listen for abort signal
+    let abortHandler = null;
     if (this.abortController?.signal) {
       if (this.abortController.signal.aborted) {
         return Promise.reject(new Error("Workflow was stopped"));
       }
-      this.abortController.signal.addEventListener("abort", () => {
+      abortHandler = () => {
         rejectPromise(new Error("Workflow was stopped"));
-      });
+      };
+      this.abortController.signal.addEventListener("abort", abortHandler);
     }
 
     // Add heartbeat function to context so nodes can reset the timer
@@ -630,24 +682,20 @@ class ExecutionEngine {
 
     try {
       // Execute with timeout and abort race
+      // Note: Abort is handled by the listener above, no need for duplicate
       const result = await Promise.race([
         executeNode(node, inputData, context),
         timeoutPromise,
-        // Add a promise that never resolves but rejects on abort
-        // (The abort listener above handles the rejection)
-        new Promise((_, reject) => {
-          if (this.abortController?.signal) {
-            this.abortController.signal.addEventListener("abort", () => {
-              reject(new Error("Workflow was stopped"));
-            });
-          }
-        }),
       ]);
       return result;
     } finally {
       // Clean up timer when execution finishes (success or failure)
       if (timer) clearTimeout(timer);
       timer = null;
+      // Clean up abort listener
+      if (abortHandler && this.abortController?.signal) {
+        this.abortController.signal.removeEventListener("abort", abortHandler);
+      }
     }
   }
 
@@ -735,7 +783,9 @@ class ExecutionEngine {
    */
   isToolNode(nodeType) {
     // These node types can be called as tools by the AI
+    // NOTE: Output is NOT a tool - it's a workflow terminal
     const toolableTypes = [
+      // Core utility nodes
       "codeExecutor",
       "httpRequest",
       "setVariable",
@@ -744,6 +794,19 @@ class ExecutionEngine {
       "switchNode",
       "delay",
       "merge",
+      // Media/AI nodes
+      "textToSpeech",
+      "imageGeneration",
+      "pythonExecutor",
+      // Data processing nodes
+      "dataTransformer",
+      "vectorMemory",
+      "semanticRouter",
+      "evaluator",
+      // Additional utility nodes
+      "webhookTrigger",
+      "browserEvent",
+      "speechToText",
     ];
     return toolableTypes.includes(nodeType);
   }
@@ -753,6 +816,7 @@ class ExecutionEngine {
    */
   getToolDescription(nodeType) {
     const descriptions = {
+      // Core utility nodes
       codeExecutor:
         "Execute JavaScript code. Pass data to process and receive the result.",
       httpRequest: "Make HTTP requests to APIs. Returns the response data.",
@@ -762,6 +826,21 @@ class ExecutionEngine {
       switchNode: "Route based on a value matching specific cases.",
       delay: "Wait for a specified duration.",
       merge: "Combine multiple inputs into one output.",
+      // Media/AI nodes
+      textToSpeech: "Convert text to spoken audio. Returns audio blob/URL.",
+      imageGeneration:
+        "Generate an image from a text prompt. Returns image data.",
+      pythonExecutor: "Execute Python code in a sandboxed environment.",
+      // Data processing nodes
+      dataTransformer: "Transform data using mapping rules.",
+      vectorMemory: "Store or query vector embeddings for semantic search.",
+      semanticRouter: "Route input based on semantic classification.",
+      evaluator: "Validate output against schema or regex patterns.",
+      output: "Display or save the final output of the workflow.",
+      // Additional utility nodes
+      webhookTrigger: "Listen for incoming webhook requests.",
+      browserEvent: "Capture browser events like clicks or navigation.",
+      speechToText: "Convert audio to text transcription.",
     };
     return descriptions[nodeType] || `Execute ${nodeType} node.`;
   }

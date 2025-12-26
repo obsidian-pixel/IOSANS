@@ -443,7 +443,6 @@ return {
         target: "ai-1",
         sourceHandle: "output-0",
         targetHandle: "input-0",
-        type: "animated",
       },
       {
         id: "e2",
@@ -451,7 +450,6 @@ return {
         target: "tts-1",
         sourceHandle: "output-0",
         targetHandle: "input-0",
-        type: "animated",
       },
       {
         id: "e3",
@@ -459,25 +457,21 @@ return {
         target: "output-1",
         sourceHandle: "output-0",
         targetHandle: "input-0",
-        type: "animated",
       },
     ],
   },
 ];
 
-// Get templates by category
+// Get templates by category (dynamic)
 export function getTemplatesByCategory() {
-  const grouped = {
-    api: [],
-    logic: [],
-    data: [],
-    ai: [],
-  };
+  const grouped = {};
 
   WORKFLOW_TEMPLATES.forEach((template) => {
-    if (grouped[template.category]) {
-      grouped[template.category].push(template);
+    const cat = template.category || "other";
+    if (!grouped[cat]) {
+      grouped[cat] = [];
     }
+    grouped[cat].push(template);
   });
 
   return grouped;

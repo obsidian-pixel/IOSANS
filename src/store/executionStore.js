@@ -38,7 +38,7 @@ const useExecutionStore = create((set, get) => ({
       executionPath: [],
       currentNodeId: null,
       activeSupportingNodeIds: [],
-      // Note: Keep edgeSnapshots across executions for debugging
+      edgeSnapshots: {}, // Clear snapshots for fresh debugging
     });
   },
 
@@ -132,6 +132,13 @@ const useExecutionStore = create((set, get) => ({
   addArtifact: (artifact) => {
     set({
       artifacts: [...get().artifacts, artifact],
+    });
+  },
+
+  removeArtifacts: (ids) => {
+    const idsSet = new Set(ids);
+    set({
+      artifacts: get().artifacts.filter((a) => !idsSet.has(a.id)),
     });
   },
 

@@ -36,10 +36,6 @@ class PyodideService {
       await this.pyodide.loadPackage(["numpy", "pandas"]);
 
       this.isReady = true;
-      console.log("🐍 Pyodide initialized successfully");
-    } catch (error) {
-      console.error("Failed to initialize Pyodide:", error);
-      throw error;
     } finally {
       this.isLoading = false;
     }
@@ -77,8 +73,7 @@ class PyodideService {
     try {
       await this.pyodide.loadPackage(packageName);
       return true;
-    } catch (error) {
-      console.error(`Failed to install ${packageName}:`, error);
+    } catch {
       return false;
     }
   }

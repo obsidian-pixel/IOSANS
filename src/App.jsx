@@ -16,6 +16,7 @@ import LoadingOverlay from "./components/LoadingOverlay/LoadingOverlay";
 import WorkflowManager from "./components/WorkflowManager/WorkflowManager";
 import OverseerPanel from "./components/Overseer/OverseerPanel";
 import OnboardingTour from "./components/Onboarding/OnboardingTour";
+import ErrorBoundary from "./components/ErrorBoundary/ErrorBoundary";
 
 // Stores
 import useWorkflowStore from "./store/workflowStore";
@@ -76,17 +77,11 @@ function App() {
 
       if (claimed.length === 0) return;
 
-      console.log("🔍 Verifying cached models...");
       const verified = await verifyDownloadedModels(claimed);
 
       // Remove any models that aren't actually cached
       if (verified.length !== claimed.length) {
-        console.warn(
-          `Removed ${claimed.length - verified.length} ghost models from list`
-        );
         useModelStore.setState({ downloadedModels: verified });
-      } else {
-        console.log(`✅ All ${verified.length} models verified`);
       }
     };
 
@@ -175,7 +170,6 @@ function App() {
 
         // Success: mark as downloaded in persisted store
         store.markDownloaded(modelId);
-        console.log(`✅ Model ${modelId} downloaded and cached`);
       } catch (error) {
         console.error("Download failed:", error);
         store.setDownloadProgress(modelId, 0, "error");
@@ -198,6 +192,7 @@ function App() {
 
       const { debug = false } = options;
       const executionStore = useExecutionStore.getState();
+      const workflowStore = useWorkflowStore.getState();
 
       // Set debug mode in store
       if (debug) {
@@ -207,7 +202,7 @@ function App() {
       await executionEngine.execute(
         nodes,
         edges,
-        { executionStore },
+        { executionStore, workflowStore },
         {}, // Initial data
         { debug } // Options
       );
@@ -216,31 +211,33 @@ function App() {
   );
 
   return (
-    <ReactFlowProvider>
-      <div className="app">
-        <Toolbar onRun={handleRun} />
-        <div className="app-body">
-          <NodeSidebar />
-          <WorkflowEditor />
-          <NodeConfigPanel key={selectedNodeId || "none"} />
-          <ExecutionPanel />
-          <OverseerPanel
-            isOpen={showOverseer}
-            onClose={() => setShowOverseer(false)}
+    <ErrorBoundary>
+      <ReactFlowProvider>
+        <div className="app">
+          <Toolbar onRun={handleRun} />
+          <div className="app-body">
+            <NodeSidebar />
+            <WorkflowEditor />
+            <NodeConfigPanel key={selectedNodeId || "none"} />
+            <ExecutionPanel />
+            <OverseerPanel
+              isOpen={showOverseer}
+              onClose={() => setShowOverseer(false)}
+            />
+          </div>
+          <ToastContainer />
+          <LoadingOverlay />
+          <WorkflowManager
+            isOpen={showWorkflowManager}
+            onClose={() => setShowWorkflowManager(false)}
+          />
+          <OnboardingTour
+            isActive={showTour}
+            onComplete={() => setShowTour(false)}
           />
         </div>
-        <ToastContainer />
-        <LoadingOverlay />
-        <WorkflowManager
-          isOpen={showWorkflowManager}
-          onClose={() => setShowWorkflowManager(false)}
-        />
-        <OnboardingTour
-          isActive={showTour}
-          onComplete={() => setShowTour(false)}
-        />
-      </div>
-    </ReactFlowProvider>
+      </ReactFlowProvider>
+    </ErrorBoundary>
   );
 }
 

@@ -1,0 +1,95 @@
+/**
+ * ErrorBoundary Styles
+ */
+.error-boundary {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary);
+  z-index: 9999;
+}
+
+.error-boundary-content {
+  text-align: center;
+  padding: 2rem;
+  max-width: 500px;
+}
+
+.error-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+}
+
+.error-boundary h1 {
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+  font-size: 1.5rem;
+}
+
+.error-message {
+  color: var(--text-secondary);
+  margin-bottom: 1.5rem;
+  font-family: monospace;
+  background: var(--bg-tertiary);
+  padding: 0.75rem;
+  border-radius: 6px;
+}
+
+.error-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+
+.error-actions button {
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.btn-retry {
+  background: var(--color-primary);
+  color: white;
+}
+
+.btn-retry:hover {
+  filter: brightness(1.1);
+}
+
+.btn-reload {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color) !important;
+}
+
+.btn-reload:hover {
+  background: var(--bg-secondary);
+}
+
+.error-details {
+  text-align: left;
+  background: var(--bg-tertiary);
+  border-radius: 6px;
+  padding: 1rem;
+}
+
+.error-details summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.error-details pre {
+  font-size: 0.75rem;
+  overflow-x: auto;
+  color: var(--color-error);
+  margin: 0.5rem 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

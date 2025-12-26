@@ -2,7 +2,7 @@
  * AnimatedEdge Component
  * Custom edge with flow animation, hover buttons, and Ghost Data tooltip
  */
-import { memo, useState, useRef, useMemo, useCallback } from "react";
+import { memo, useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { BaseEdge, EdgeLabelRenderer, useNodes } from "@xyflow/react";
 import { useShallow } from "zustand/react/shallow";
 import useExecutionStore from "../../store/executionStore";
@@ -28,6 +28,15 @@ function AnimatedEdge({
   const [isHovered, setIsHovered] = useState(false);
   const [showGhostData, setShowGhostData] = useState(false);
   const hoverTimeoutRef = useRef(null);
+
+  // Cleanup hover timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Get nodes WITH measured dimensions from React Flow (not from store)
   const nodes = useNodes();

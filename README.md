@@ -26,8 +26,9 @@ IOSANS puts you in control. No cloud subscriptions. No data leaks. No vendor loc
 ### 🖼️ Visual Workflow Editor
 
 - **React Flow Canvas**: Drag-and-drop node editor with smooth pan/zoom
-- **22+ Node Types**: Comprehensive library across 4 categories
+- **30+ Node Types**: Comprehensive library across 6 categories
 - **Smart Connection Validation**: Prevents invalid node connections
+- **Animated Edges**: Visual feedback with data flow animations
 - **MiniMap**: Bird's-eye view for complex workflows
 - **Context Menus**: Right-click actions for quick operations
 - **Keyboard Shortcuts**: Full keyboard navigation (Ctrl+S, Ctrl+D, etc.)
@@ -36,21 +37,22 @@ IOSANS puts you in control. No cloud subscriptions. No data leaks. No vendor loc
 ### 🤖 Local AI (WebLLM)
 
 - **100% Browser-Based**: All inference runs locally via WebGPU
-- **Multiple Models**: Gemma 2, Phi-3.5, Llama 3.2, Qwen 3, SmolLM
+- **Multiple Models**: Gemma 2, Phi-3.5, Llama 3.2, Qwen 3, SmolLM, DeepSeek
 - **Zero Data Leakage**: Your prompts never leave your device
 - **JSON-Mode Tool Calling**: AI Agent executes connected tool nodes via structured JSON
-- **Two-Pass Execution**: Tools return results to LLM for final answer (max 5 iterations)
+- **Two-Pass Execution**: Tools return results to LLM for final answer (max 10 iterations)
 - **Conversation Memory**: Maintain context across interactions
 - **VRAM-Aware Selection**: Models show VRAM requirements
 
 ### 🔄 Workflow Execution
 
 - **Real-Time Graph Traversal**: Visual execution highlighting
-- **Loop Control**: Iteration-based and array-based looping
-- **Conditional Branching**: If/Else and Switch routing
-- **Error Handling**: Error triggers with retry logic
-- **Artifact Storage**: All outputs saved to IndexedDB
+- **Loop Control**: Iteration-based and array-based looping with `itemsPath` support
+- **Conditional Branching**: If/Else (8 operators) and Switch routing
+- **Error Handling**: Error triggers with configurable retry logic
+- **Artifact Storage**: All outputs saved to IndexedDB with persistence
 - **Edge Status Feedback**: Pulse animation during active execution
+- **Execution Context**: Unique execution IDs for tracking
 
 ### 🎯 Agentic Patterns
 
@@ -58,15 +60,18 @@ IOSANS puts you in control. No cloud subscriptions. No data leaks. No vendor loc
 - **EvaluatorNode**: Schema/regex validation with self-correction loops
 - **MergeNode**: Wait-for-all or first-to-complete aggregation modes
 - **Dynamic Ports**: Nodes with variable input/output handles
+- **Swarm Orchestration**: Multi-agent coordination
 
 ### 🧠 Advanced Features
 
-- **Vector Memory**: Semantic search with local embeddings
-- **Text-to-Speech**: Web Speech API integration
+- **Vector Memory**: Semantic search with local embeddings (Jaccard fallback)
+- **Text-to-Speech**: Web Speech API with voice preloading
+- **Speech-to-Text**: Audio transcription
 - **Human-in-the-Loop**: Approval gates for critical actions
 - **Sub-Workflows**: Modular, reusable workflow components
 - **Python Executor**: Run Python via Pyodide in-browser
-- **Auto-Detect Types**: Intelligent MIME detection for Blob/JSON/audio/HTML
+- **Auto-Detect Types**: Intelligent MIME detection for Blob/JSON/audio/HTML/images
+- **Expression Engine**: `{{ $input.field }}` syntax for dynamic values
 
 ### 🛠️ Developer Tools
 
@@ -77,6 +82,7 @@ IOSANS puts you in control. No cloud subscriptions. No data leaks. No vendor loc
 - **Execution Analytics (Shift+A)**: Performance metrics and slowest nodes
 - **Ghost Data Debugging**: Hover edges to see last payload snapshot
 - **Monaco Editor**: CDN-loaded syntax highlighting for code nodes
+- **Artifact Browser**: View, download, and delete stored artifacts
 
 ---
 
@@ -123,8 +129,9 @@ iosans/
 │   │   │   └── configs/      # Per-node config components
 │   │   ├── Sidebar/          # Node palette sidebar
 │   │   ├── Toolbar/          # Workflow controls & docs
-│   │   ├── ExecutionPanel/   # Logs and execution output
-│   │   ├── AIControls/       # AI Overseer chat panel
+│   │   ├── ExecutionPanel/   # Logs, output, and artifacts tabs
+│   │   ├── Overseer/         # AI Overseer chat panel
+│   │   ├── MediaPreview/     # Audio/Image artifact viewers
 │   │   ├── Onboarding/       # Tutorial & onboarding tour
 │   │   └── LoadingOverlay/   # Model loading states
 │   │
@@ -132,8 +139,9 @@ iosans/
 │   │   ├── base/             # BaseNode wrapper with handles
 │   │   ├── triggers/         # ManualTrigger, Schedule, Webhook, etc.
 │   │   ├── actions/          # HTTP, Code, Output, FileSystem, etc.
-│   │   ├── logic/            # IfElse, Loop, Switch, Merge
-│   │   └── ai/               # AIAgent, VectorMemory, TTS, etc.
+│   │   ├── logic/            # IfElse, Loop, Switch, Merge, Group
+│   │   ├── ai/               # AIAgent, VectorMemory, TTS, Evaluator, etc.
+│   │   └── ai-tools/         # Tool nodes (HTTP, TTS, Python, etc.)
 │   │
 │   ├── store/                # Zustand state stores
 │   │   ├── workflowStore.js  # Nodes, edges, selection
@@ -143,7 +151,9 @@ iosans/
 │   ├── engine/               # Workflow execution engine
 │   │   ├── ExecutionEngine.js    # Graph traversal & node execution
 │   │   ├── NodeExecutors.js      # Per-node execution logic
-│   │   └── WebLLMService.js      # LLM inference service
+│   │   ├── ToolCallingService.js # AI tool calling with ReAct
+│   │   ├── WebLLMService.js      # LLM inference service
+│   │   └── VectorMemoryService.js# Semantic search service
 │   │
 │   ├── services/             # External services
 │   │   └── OverseerService.js    # AI workflow assistant
@@ -207,50 +217,157 @@ npm run preview
 
 ## 📦 Node Reference
 
-### Triggers (5 nodes)
+### 🔌 Triggers (5 nodes)
 
-| Node                 | Icon | Description                         |
-| -------------------- | ---- | ----------------------------------- |
-| **Manual Trigger**   | ▶️   | Start workflow on button click      |
-| **Schedule Trigger** | ⏰   | CRON-based scheduled execution      |
-| **Webhook Trigger**  | 🔗   | HTTP endpoint for external triggers |
-| **Error Trigger**    | ⚠️   | Catch errors from other nodes       |
-| **Browser Event**    | 🌐   | Trigger on DOM/browser events       |
+Entry points that start workflow execution.
 
-### Actions (6 nodes)
+| Node                 | Icon | Description                         | Key Features                     |
+| -------------------- | ---- | ----------------------------------- | -------------------------------- |
+| **Manual Trigger**   | ▶️   | Start workflow on button click      | Simple one-click activation      |
+| **Schedule Trigger** | ⏰   | CRON-based scheduled execution      | Interval and time-based triggers |
+| **Webhook Trigger**  | 🔗   | HTTP endpoint for external triggers | Custom endpoint paths            |
+| **Error Trigger**    | ⚠️   | Catch errors from other nodes       | Error handling and retry         |
+| **Browser Event**    | 🌐   | Trigger on DOM/browser events       | Click, scroll, keyboard events   |
 
-| Node              | Icon | Description                                       |
-| ----------------- | ---- | ------------------------------------------------- |
-| **Output**        | 📤   | Display/save workflow results (auto-detect types) |
-| **HTTP Request**  | 🌐   | External API calls                                |
-| **Code Executor** | 💻   | JavaScript with Monaco editor                     |
-| **Set Variable**  | 📝   | Data transformation                               |
-| **File System**   | 📁   | Local file read/write                             |
-| **Local Storage** | 💾   | IndexedDB/localStorage operations                 |
+---
 
-### Logic (7 nodes)
+### ⚡ Actions (6 nodes)
 
-| Node               | Icon | Description                                   |
-| ------------------ | ---- | --------------------------------------------- |
-| **If/Else**        | 🔀   | Conditional branching                         |
-| **Loop**           | 🔄   | Iteration control (count or array)            |
-| **Switch**         | 🔃   | Multi-path routing                            |
-| **Merge**          | 🔗   | Wait-for-all or first-to-complete aggregation |
-| **Group**          | 📦   | Collapsible container for nodes               |
-| **SemanticRouter** | 🧭   | AI-powered intent classification              |
-| **Evaluator**      | 🔍   | Schema/regex validation with retry            |
+Perform operations and transformations on data.
 
-### AI (7 nodes)
+| Node                | Icon | Description                   | Key Features                                |
+| ------------------- | ---- | ----------------------------- | ------------------------------------------- |
+| **Output**          | 📤   | Display/save workflow results | Console, file, notification, artifact modes |
+| **HTTP Request**    | 🌐   | External API calls            | Expression support in URL/headers/body      |
+| **Code Executor**   | 💻   | JavaScript execution          | Monaco editor, CDN imports, async support   |
+| **Python Executor** | 🐍   | Python via Pyodide            | Full Python stdlib, NumPy support           |
+| **Set Variable**    | 📝   | Data transformation           | Template expressions, JSON path             |
+| **File System**     | 📁   | Local file read/write         | Text and binary file support                |
 
-| Node                  | Icon | Description                   |
-| --------------------- | ---- | ----------------------------- |
-| **AI Agent**          | 🤖   | WebLLM with JSON tool calling |
-| **Vector Memory**     | 🧠   | Semantic storage & retrieval  |
-| **Wait for Approval** | ✋   | Human-in-the-loop gates       |
-| **Sub-Workflow**      | 🔀   | Execute nested workflows      |
-| **Text to Speech**    | 🔊   | Audio synthesis               |
-| **Image Generation**  | 🎨   | AI image creation             |
-| **Python Executor**   | 🐍   | Run Python via Pyodide        |
+---
+
+### 🔀 Logic (5 nodes)
+
+Control workflow flow and branching.
+
+| Node        | Icon | Description                | Key Features                                                    |
+| ----------- | ---- | -------------------------- | --------------------------------------------------------------- |
+| **If/Else** | 🔀   | Conditional branching      | 8 operators: equals, contains, isEmpty, isTrue, regex, etc.     |
+| **Loop**    | 🔄   | Iteration control          | Count-based or array-based with `itemsPath`, outputs item/index |
+| **Switch**  | 🔃   | Multi-path routing         | Multiple case conditions with default                           |
+| **Merge**   | 🔗   | Aggregate multiple inputs  | Wait-for-all or first-to-complete modes                         |
+| **Group**   | 📦   | Collapsible node container | Organize complex workflows visually                             |
+
+---
+
+### 🤖 AI Nodes (10 nodes)
+
+AI-powered processing and intelligence.
+
+| Node                  | Icon | Description                  | Key Features                                      |
+| --------------------- | ---- | ---------------------------- | ------------------------------------------------- |
+| **AI Agent**          | 🤖   | WebLLM with tool calling     | JSON ReAct loop, max 10 iterations, 17 tool types |
+| **Chat Model**        | 💬   | LLM configuration provider   | Model selection, temperature, max tokens          |
+| **Vector Memory**     | 🧠   | Semantic storage & retrieval | Upsert, query, delete modes; Jaccard similarity   |
+| **Semantic Router**   | 🧭   | Intent classification        | Keyword or LLM-based routing                      |
+| **Evaluator**         | 🔍   | Output validation            | Schema or regex with retry counter                |
+| **Text to Speech**    | 🔊   | Audio synthesis              | Web Speech API with voice selection               |
+| **Speech to Text**    | 🎤   | Audio transcription          | Browser speech recognition                        |
+| **Image Generation**  | 🎨   | AI image creation            | Prompt-based generation                           |
+| **Wait for Approval** | ✋   | Human-in-the-loop gate       | Manual approval before proceeding                 |
+| **Sub-Workflow**      | 🔀   | Execute nested workflows     | Modular workflow composition                      |
+| **Swarm**             | 🐝   | Multi-agent orchestration    | Coordinate multiple AI agents                     |
+
+---
+
+### 🔧 AI Tool Nodes (5 nodes)
+
+Specialized nodes that can be called by AI Agents as tools.
+
+| Node                      | Icon | Description           | When Connected to AI Agent |
+| ------------------------- | ---- | --------------------- | -------------------------- |
+| **HTTP Request (Tool)**   | 🌐   | API calls as AI tool  | AI can make web requests   |
+| **Text to Speech (Tool)** | 🔊   | Audio generation tool | AI can generate audio      |
+| **Image Generation**      | 🎨   | Image creation tool   | AI can create images       |
+| **Python Executor**       | 🐍   | Python execution tool | AI can run Python code     |
+| **File System**           | 📁   | File operations tool  | AI can read/write files    |
+
+---
+
+### Tool-Callable Node Types
+
+The AI Agent can call these node types as tools when connected:
+
+```
+codeExecutor, httpRequest, setVariable, ifElse, loopEach, switchNode,
+delay, merge, textToSpeech, imageGeneration, pythonExecutor,
+dataTransformer, vectorMemory, semanticRouter, evaluator, output,
+webhookTrigger, browserEvent, speechToText
+```
+
+---
+
+## 🔧 Expression Engine
+
+Use expressions in node configurations for dynamic values:
+
+```javascript
+// Access input data
+{
+  {
+    $input;
+  }
+} // Full input object
+{
+  {
+    $input.name;
+  }
+} // Nested property
+{
+  {
+    $input.items[0];
+  }
+} // Array access
+
+// Built-in functions
+{
+  {
+    $now();
+  }
+} // Current timestamp
+{
+  {
+    $uuid();
+  }
+} // Generate UUID
+{
+  {
+    $json($input);
+  }
+} // Stringify to JSON
+{
+  {
+    $upper($input.text);
+  }
+} // Uppercase
+{
+  {
+    $lower($input.text);
+  }
+} // Lowercase
+
+// Math operations
+{
+  {
+    $input.price * 1.1;
+  }
+} // Calculations
+{
+  {
+    $input.total + 100;
+  }
+} // Addition
+```
 
 ---
 
@@ -283,6 +400,11 @@ const AVAILABLE_MODELS = [
     name: "SmolLM 1.7B",
     size: "1.1GB",
   },
+  {
+    id: "DeepSeek-R1-Distill-Qwen-1.5B-q4f16_1-MLC",
+    name: "DeepSeek R1 1.5B",
+    size: "1.0GB",
+  },
 ];
 ```
 
@@ -300,6 +422,7 @@ No environment variables required—IOSANS is 100% client-side.
 | **Data Storage**     | IndexedDB in your browser                      |
 | **Workflow Files**   | Saved locally or exported as JSON              |
 | **Network Requests** | Only when you explicitly use HTTP Request node |
+| **Artifacts**        | Stored in IndexedDB, persisted across sessions |
 
 **Your data never leaves your device.**
 
@@ -334,6 +457,7 @@ npm run lint     # Run ESLint
 3. **Add executor** in `src/engine/NodeExecutors.js`
 4. **Create config** in `src/components/NodeConfig/configs/`
 5. **Register** in `WorkflowEditor.jsx` and `NodeConfigPanel.jsx`
+6. **Add to toolableTypes** in `ExecutionEngine.js` (if AI-callable)
 
 ---
 
@@ -352,6 +476,33 @@ npm run lint     # Run ESLint
 | Zoom In/Out         | `Ctrl + +/-`           |
 | Fit to Screen       | `Ctrl + 0`             |
 | Pan Canvas          | `Space + Drag`         |
+
+---
+
+## 🔄 Recent Updates
+
+### Execution Engine Improvements
+
+- Loop nodes support `itemsPath` for array-based iteration
+- If/Else supports 8 operators including `isEmpty`, `isNotEmpty`, `isTrue`, `isFalse`
+- HTTP Request supports expression resolution in URL, headers, and body
+- Evaluator retry state properly persists across iterations
+- Execution IDs for artifact grouping
+
+### Output & Artifact System
+
+- Artifacts only created when output type is "artifact"
+- Image preview in artifacts tab
+- Delete artifact button with IndexedDB removal
+- Proper ObjectURL caching and cleanup
+- Safe JSON stringify with try/catch
+
+### AI Agent Enhancements
+
+- JSON-based tool calling via ReAct loop
+- User message templates with input format detection
+- 17 node types callable as tools
+- Improved input data formatting for LLM
 
 ---
 

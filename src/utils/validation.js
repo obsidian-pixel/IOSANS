@@ -28,7 +28,7 @@ export function isValidConnection(connection, nodes, edges) {
     return false;
   }
 
-  // Trigger nodes can only be sources, not targets (except Schedule Trigger which can be looped)
+  // Trigger nodes can only be sources, not targets (except Schedule Trigger and Output)
   const targetType = NODE_TYPES[targetNode.type];
   if (
     targetType?.category === "trigger" &&
@@ -79,11 +79,24 @@ export function isValidConnection(connection, nodes, edges) {
       "codeExecutor",
       "pythonExecutor",
       "httpRequest",
-      "pythonTool",
       "textToSpeech",
       "imageGeneration",
       "aiAgent",
       "fileSystem",
+      "setVariable",
+      "ifElse",
+      "loop",
+      "switchNode",
+      "merge",
+      "vectorMemory",
+      "semanticRouter",
+      "evaluator",
+      "output",
+      "webhookTrigger",
+      "browserEventTrigger",
+      "speechToText",
+      "dataTransformer",
+      "delay",
     ];
     if (!toolTypes.includes(sourceNode.type)) {
       return false;

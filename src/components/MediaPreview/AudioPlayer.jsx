@@ -2,7 +2,7 @@
  * AudioPlayer Component
  * Renders audio artifacts with waveform visualization and playback controls
  */
-import { useState, useRef, useEffect, memo } from "react";
+import { useState, useRef, useEffect, useMemo, memo } from "react";
 import "./AudioPlayer.css";
 
 function AudioPlayer({ data, artifactId }) {
@@ -16,6 +16,15 @@ function AudioPlayer({ data, artifactId }) {
   const isSpeechArtifact =
     data?.type === "speech" || data?.mimeType === "audio/speech";
 
+  // Create ObjectURL once and clean up on unmount to prevent memory leaks
+  const audioUrl = useMemo(() => {
+    if (isSpeechArtifact) return null;
+    if (data?.url) return data.url;
+    if (data?.blob instanceof Blob) return URL.createObjectURL(data.blob);
+    if (data instanceof Blob) return URL.createObjectURL(data);
+    return null;
+  }, [data, isSpeechArtifact]);
+
   useEffect(() => {
     const interval = progressInterval.current;
     return () => {
@@ -26,8 +35,12 @@ function AudioPlayer({ data, artifactId }) {
       if (window.speechSynthesis) {
         window.speechSynthesis.cancel();
       }
+      // Revoke ObjectURL to prevent memory leak
+      if (audioUrl && !data?.url) {
+        URL.revokeObjectURL(audioUrl);
+      }
     };
-  }, []);
+  }, [audioUrl, data?.url]);
 
   const handlePlay = () => {
     if (isSpeechArtifact) {
@@ -129,10 +142,10 @@ function AudioPlayer({ data, artifactId }) {
       </div>
 
       {/* Hidden audio element for regular audio files */}
-      {!isSpeechArtifact && data?.url && (
+      {!isSpeechArtifact && audioUrl && (
         <audio
           ref={audioRef}
-          src={data.url}
+          src={audioUrl}
           onTimeUpdate={handleTimeUpdate}
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
